@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import AIChat from '../components/AIChat/AIChat';
 
 export default function DashboardLayout() {
   return (
@@ -12,6 +13,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      <AIChat />
     </div>
   );
 }
