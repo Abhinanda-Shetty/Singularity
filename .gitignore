@@ -1,0 +1,29 @@
+# Node
+node_modules/
+.node_modules
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+*venv*/
+
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Generated data & model artefacts
+BackendAI/data/*.csv
+BackendAI/models/*.pkl
+
+# Environment variables
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
