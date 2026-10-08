@@ -1,18 +1,34 @@
 {
-  "name": "backend",
+  "name": "singularity-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx nodemon app.js"
-  },
-  "keywords": [],
+  "description": "Medical Supply Intelligence & Logistics — Node.js + Express Backend",
+  "main": "server.js",
   "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "migrate": "node migrations/runner.js",
+    "seed": "node seed/runner.js"
+  },
+  "keywords": [
+    "medical",
+    "supply",
+    "logistics",
+    "backend",
+    "express",
+    "postgresql"
+  ],
+  "author": "Singularity Team",
+  "license": "MIT",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
     "nodemon": "^3.1.14"
   }
 }
