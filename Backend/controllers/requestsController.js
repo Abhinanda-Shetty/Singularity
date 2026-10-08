@@ -156,10 +156,43 @@ const getRequests = asyncHandler(async (req, res) => {
     // Fallback to dataStore
   }
 
-  const list = dataStore.getRequests({ hospital_id, limit });
+  const list = dataStore.getRequests({ hospital_id: req.query.hospital_id ? hospital_id : undefined, limit });
   return res.status(200).json(
     successResponse(list, null, { total: list.length })
   );
 });
 
-module.exports = { createRequest, getRequests };
+/**
+ * PATCH /api/requests/:id
+ * Update status of a request (e.g. fulfilled, in-transit, cancelled).
+ */
+const updateRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    throw new AppError('Field "status" is required', 400, 'VALIDATION_ERROR');
+  }
+
+  try {
+    const result = await query(
+      `UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [status, id]
+    );
+    if (result && result.rows && result.rows.length > 0) {
+      return res.status(200).json(successResponse(result.rows[0]));
+    }
+  } catch {
+    // fallback to dataStore
+  }
+
+  const updated = dataStore.updateRequestStatus(id, status);
+  if (!updated) {
+    throw new AppError('Request not found', 404, 'NOT_FOUND');
+  }
+
+  return res.status(200).json(successResponse(updated));
+});
+
+module.exports = { createRequest, getRequests, updateRequest };
+

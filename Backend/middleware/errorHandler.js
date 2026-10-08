@@ -40,9 +40,7 @@ function errorMiddleware(err, req, res, _next) {
  * and forward them to the error middleware.
  */
 function asyncHandler(fn) {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
 module.exports = { notFoundMiddleware, errorMiddleware, asyncHandler };

@@ -185,7 +185,32 @@ CREATE INDEX IF NOT EXISTS idx_activity_medicine_id  ON activity_log (medicine_i
 CREATE INDEX IF NOT EXISTS idx_activity_created_at   ON activity_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_type         ON activity_log (type);
 
--- 9. SCHEMA MIGRATIONS TABLE
+-- 9. USERS TABLE (Dynamic Cloud Auth)
+CREATE TABLE IF NOT EXISTS users (
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(100) UNIQUE NOT NULL,
+    email         VARCHAR(255) UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role          VARCHAR(50)  NOT NULL DEFAULT 'hospital_admin',
+    hospital_id   INTEGER REFERENCES hospitals(id) ON DELETE SET NULL,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
+CREATE INDEX IF NOT EXISTS idx_users_email    ON users (email);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_updated_at') THEN
+        CREATE TRIGGER trg_users_updated_at
+        BEFORE UPDATE ON users
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END;
+$$;
+
+-- 10. SCHEMA MIGRATIONS TABLE
 CREATE TABLE IF NOT EXISTS schema_migrations (
     id         SERIAL PRIMARY KEY,
     filename   VARCHAR(255) UNIQUE NOT NULL,
@@ -199,7 +224,8 @@ INSERT INTO schema_migrations (filename) VALUES
     ('004_create_batches.sql'),
     ('005_create_demand_history.sql'),
     ('006_create_requests.sql'),
-    ('007_create_activity_log.sql')
+    ('007_create_activity_log.sql'),
+    ('008_create_users.sql')
 ON CONFLICT (filename) DO NOTHING;
 
 -- 10. SEED INITIAL HOSPITALS

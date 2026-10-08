@@ -6,13 +6,14 @@ const { query } = require('../config/database');
 /**
  * Find all batches with optional filters and pagination.
  */
-async function findAll({ hospital_id, medicine_id, expiring_within_days, limit = 50, offset = 0 } = {}) {
+async function findAll({ hospital_id, medicine_id, expiring_within_days, status, limit = 50, offset = 0 } = {}) {
   try {
-    const res = dataStore.getBatches({ hospital_id, medicine_id, expiring_within_days, limit, offset });
+    const res = dataStore.getBatches({ hospital_id, medicine_id, expiring_within_days, status, limit, offset });
     if (res && res.rows.length > 0) return res;
   } catch (err) {
     console.warn('[BatchModel] dataStore warning, trying DB:', err.message);
   }
+
 
   try {
     const values = [];

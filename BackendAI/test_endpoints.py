@@ -165,7 +165,7 @@ def run_tests():
             print(f"      - {t['donor_hospital_name']} -> {t['recipient_hospital_name']}: {t['transfer_qty']} units ({t['distance_km']:.1f} km)")
 
     # 8. Full Analyse Pipeline endpoint
-    print("\n[8/8] Testing POST /analyse (End-to-End Orchestration) ...")
+    print("\n[8/11] Testing POST /analyse (End-to-End Orchestration) ...")
     r = client.post("/analyse", json={
         "records": sample_records,
         "batches": sample_batches,
@@ -178,9 +178,31 @@ def run_tests():
     print(f"      Forecasts: {analyse_resp['forecast_count']} | Risk summary: {analyse_resp['risk_summary']}")
     print(f"      Total transfers generated: {analyse_resp['total_transfers']}")
 
+    # 9. Dynamic database forecast endpoint
+    print("\n[9/11] Testing GET /forecast/db (Live DB Parameters) ...")
+    r = client.get("/forecast/db")
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+    db_fc = r.json()
+    print(f"      Status: {r.status_code} OK | DB Forecasts count: {db_fc['count']}")
+
+    # 10. Dynamic database stockout endpoint
+    print("\n[10/11] Testing GET /stockout/db (Live DB Risk Classification) ...")
+    r = client.get("/stockout/db")
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+    db_so = r.json()
+    print(f"      Status: {r.status_code} OK | Records assessed: {db_so['summary']['records_assessed']}")
+
+    # 11. Dynamic database end-to-end analyse endpoint
+    print("\n[11/11] Testing GET /analyse/db (Live DB Orchestration) ...")
+    r = client.get("/analyse/db")
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+    db_an = r.json()
+    print(f"      Status: {r.status_code} OK | Pipeline: {db_an['pipeline']} | Transfers: {db_an['total_transfers']}")
+
     print("\n" + "=" * 65)
-    print("  ALL 8 ENDPOINTS PASSED WITH 200 OK STATUS!")
+    print("  ALL 11 ENDPOINTS PASSED WITH 200 OK STATUS!")
     print("=" * 65)
 
 if __name__ == "__main__":
     run_tests()
+

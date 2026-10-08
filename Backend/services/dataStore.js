@@ -68,50 +68,134 @@ function daysFromNow(days) {
   return d.toISOString().split('T')[0];
 }
 
-// Initial Inventory
+// Initial Inventory across all 5 hospitals with varied Indian medicines
 let inventory = [
-  { id: 1, hospital_id: 1, medicine_id: 1, quantity: 1200, safety_stock: 200, updated_at: new Date().toISOString() },
-  { id: 2, hospital_id: 1, medicine_id: 2, quantity: 800,  safety_stock: 150, updated_at: new Date().toISOString() },
-  { id: 3, hospital_id: 1, medicine_id: 3, quantity: 450,  safety_stock: 100, updated_at: new Date().toISOString() },
-  { id: 4, hospital_id: 1, medicine_id: 4, quantity: 600,  safety_stock: 120, updated_at: new Date().toISOString() },
-  { id: 5, hospital_id: 1, medicine_id: 5, quantity: 35,   safety_stock: 50,  updated_at: new Date().toISOString() }, // at-risk
-  { id: 6, hospital_id: 1, medicine_id: 6, quantity: 120,  safety_stock: 40,  updated_at: new Date().toISOString() },
-  { id: 7, hospital_id: 1, medicine_id: 7, quantity: 700,  safety_stock: 150, updated_at: new Date().toISOString() },
-  { id: 8, hospital_id: 1, medicine_id: 8, quantity: 20,   safety_stock: 30,  updated_at: new Date().toISOString() }, // at-risk
-  { id: 9, hospital_id: 2, medicine_id: 1, quantity: 500,  safety_stock: 100, updated_at: new Date().toISOString() },
-  { id: 10, hospital_id: 2, medicine_id: 2, quantity: 300, safety_stock: 80,  updated_at: new Date().toISOString() },
+  // Hospital 1 - City General Hospital (Urban, Large)
+  { id: 1, hospital_id: 1, medicine_id: 1, quantity: 1200, safety_stock: 200, updated_at: new Date().toISOString() }, // Augmentin (Surplus)
+  { id: 2, hospital_id: 1, medicine_id: 2, quantity: 800,  safety_stock: 150, updated_at: new Date().toISOString() }, // Azithral (Surplus)
+  { id: 3, hospital_id: 1, medicine_id: 3, quantity: 450,  safety_stock: 100, updated_at: new Date().toISOString() }, // Ascoril LS
+  { id: 4, hospital_id: 1, medicine_id: 4, quantity: 600,  safety_stock: 120, updated_at: new Date().toISOString() }, // Allegra 120
+  { id: 5, hospital_id: 1, medicine_id: 5, quantity: 35,   safety_stock: 50,  updated_at: new Date().toISOString() }, // Avil 25 (Critical Deficit)
+  { id: 6, hospital_id: 1, medicine_id: 6, quantity: 120,  safety_stock: 40,  updated_at: new Date().toISOString() }, // Aciloc 150
+  { id: 7, hospital_id: 1, medicine_id: 7, quantity: 700,  safety_stock: 150, updated_at: new Date().toISOString() }, // Atorva 20
+  { id: 8, hospital_id: 1, medicine_id: 8, quantity: 20,   safety_stock: 30,  updated_at: new Date().toISOString() }, // Amlokind 5 (Critical Deficit)
+  { id: 9, hospital_id: 1, medicine_id: 9, quantity: 950,  safety_stock: 180, updated_at: new Date().toISOString() }, // Glycomet 500
+  { id: 10, hospital_id: 1, medicine_id: 10, quantity: 400, safety_stock: 80, updated_at: new Date().toISOString() }, // Pan 40
+  { id: 11, hospital_id: 1, medicine_id: 11, quantity: 1500, safety_stock: 250, updated_at: new Date().toISOString() }, // Calpol 650
+  { id: 12, hospital_id: 1, medicine_id: 12, quantity: 18,  safety_stock: 60, updated_at: new Date().toISOString() }, // Dolo 650 (Critical Deficit)
+
+  // Hospital 2 - Northern District Hospital (Semi-Urban)
+  { id: 13, hospital_id: 2, medicine_id: 1, quantity: 50,  safety_stock: 150, updated_at: new Date().toISOString() }, // Augmentin (Needs Transfer!)
+  { id: 14, hospital_id: 2, medicine_id: 2, quantity: 65,  safety_stock: 120, updated_at: new Date().toISOString() }, // Azithral (Needs Transfer!)
+  { id: 15, hospital_id: 2, medicine_id: 3, quantity: 500, safety_stock: 90,  updated_at: new Date().toISOString() }, // Ascoril LS
+  { id: 16, hospital_id: 2, medicine_id: 5, quantity: 300, safety_stock: 40,  updated_at: new Date().toISOString() }, // Avil 25 (Donor Surplus)
+  { id: 17, hospital_id: 2, medicine_id: 8, quantity: 450, safety_stock: 50,  updated_at: new Date().toISOString() }, // Amlokind 5 (Donor Surplus)
+  { id: 18, hospital_id: 2, medicine_id: 9, quantity: 40,  safety_stock: 100, updated_at: new Date().toISOString() }, // Glycomet (Deficit)
+
+  // Hospital 3 - Rural Health Centre East (Rural)
+  { id: 19, hospital_id: 3, medicine_id: 1, quantity: 25,  safety_stock: 80,  updated_at: new Date().toISOString() }, // Augmentin (Deficit)
+  { id: 20, hospital_id: 3, medicine_id: 6, quantity: 380, safety_stock: 40,  updated_at: new Date().toISOString() }, // Aciloc (Surplus)
+  { id: 21, hospital_id: 3, medicine_id: 11, quantity: 45, safety_stock: 120, updated_at: new Date().toISOString() }, // Calpol (Deficit)
+  { id: 22, hospital_id: 3, medicine_id: 12, quantity: 500, safety_stock: 50, updated_at: new Date().toISOString() }, // Dolo (Donor Surplus)
+
+  // Hospital 4 - Cardiac Specialty Institute (Specialty)
+  { id: 23, hospital_id: 4, medicine_id: 7, quantity: 850, safety_stock: 120, updated_at: new Date().toISOString() }, // Atorva (Surplus)
+  { id: 24, hospital_id: 4, medicine_id: 8, quantity: 720, safety_stock: 100, updated_at: new Date().toISOString() }, // Amlokind (Surplus)
+  { id: 25, hospital_id: 4, medicine_id: 1, quantity: 40,  safety_stock: 80,  updated_at: new Date().toISOString() }, // Augmentin (Deficit)
+
+  // Hospital 5 - South Urban Medical Centre (Urban)
+  { id: 26, hospital_id: 5, medicine_id: 2, quantity: 600, safety_stock: 100, updated_at: new Date().toISOString() }, // Azithral (Surplus)
+  { id: 27, hospital_id: 5, medicine_id: 4, quantity: 450, safety_stock: 80,  updated_at: new Date().toISOString() }, // Allegra
+  { id: 28, hospital_id: 5, medicine_id: 10, quantity: 20, safety_stock: 70,  updated_at: new Date().toISOString() }, // Pan 40 (Deficit)
 ];
 
-// Initial Batches
+// Initial Batches with EXPIRED, CRITICAL, and HEALTHY expiry dates
 let batches = [
-  { id: 1, hospital_id: 1, medicine_id: 1, quantity: 500, expiry_date: daysFromNow(180), created_at: new Date().toISOString() },
-  { id: 2, hospital_id: 1, medicine_id: 1, quantity: 700, expiry_date: daysFromNow(365), created_at: new Date().toISOString() },
-  { id: 3, hospital_id: 1, medicine_id: 2, quantity: 400, expiry_date: daysFromNow(30),  created_at: new Date().toISOString() },
-  { id: 4, hospital_id: 1, medicine_id: 2, quantity: 400, expiry_date: daysFromNow(200), created_at: new Date().toISOString() },
-  { id: 5, hospital_id: 1, medicine_id: 5, quantity: 20,  expiry_date: daysFromNow(14),  created_at: new Date().toISOString() }, // Expiring soon
-  { id: 6, hospital_id: 1, medicine_id: 5, quantity: 15,  expiry_date: daysFromNow(7),   created_at: new Date().toISOString() }, // Critical expiry
-  { id: 7, hospital_id: 1, medicine_id: 8, quantity: 20,  expiry_date: daysFromNow(21),  created_at: new Date().toISOString() },
+  // Expired Batches (Action Required: Quarantine & Remove)
+  { id: 1, hospital_id: 1, medicine_id: 5, batch_number: 'B-EXP-2024A', quantity: 25,  expiry_date: daysFromNow(-8),  created_at: new Date().toISOString() }, // EXPIRED 8 days ago
+  { id: 2, hospital_id: 1, medicine_id: 8, batch_number: 'B-EXP-2024B', quantity: 15,  expiry_date: daysFromNow(-3),  created_at: new Date().toISOString() }, // EXPIRED 3 days ago
+  { id: 3, hospital_id: 2, medicine_id: 1, batch_number: 'B-EXP-2024C', quantity: 30,  expiry_date: daysFromNow(-15), created_at: new Date().toISOString() }, // EXPIRED 15 days ago
+
+  // Critical Expiry Batches (< 14 days remaining)
+  { id: 4, hospital_id: 1, medicine_id: 3, batch_number: 'B-CRIT-001', quantity: 40,   expiry_date: daysFromNow(4),   created_at: new Date().toISOString() }, // Expires in 4 days
+  { id: 5, hospital_id: 1, medicine_id: 6, batch_number: 'B-CRIT-002', quantity: 50,   expiry_date: daysFromNow(9),   created_at: new Date().toISOString() }, // Expires in 9 days
+  { id: 6, hospital_id: 3, medicine_id: 6, batch_number: 'B-CRIT-003', quantity: 60,   expiry_date: daysFromNow(12),  created_at: new Date().toISOString() }, // Expires in 12 days
+
+  // Medium Expiry Batches (15 to 30 days)
+  { id: 7, hospital_id: 1, medicine_id: 2, batch_number: 'B-MED-001',  quantity: 200,  expiry_date: daysFromNow(22),  created_at: new Date().toISOString() },
+  { id: 8, hospital_id: 2, medicine_id: 3, batch_number: 'B-MED-002',  quantity: 150,  expiry_date: daysFromNow(28),  created_at: new Date().toISOString() },
+
+  // Long Safe Batches (> 60 days)
+  { id: 9, hospital_id: 1, medicine_id: 1, batch_number: 'B-SAFE-001', quantity: 700,  expiry_date: daysFromNow(180), created_at: new Date().toISOString() },
+  { id: 10, hospital_id: 1, medicine_id: 1, batch_number: 'B-SAFE-002', quantity: 500, expiry_date: daysFromNow(365), created_at: new Date().toISOString() },
+  { id: 11, hospital_id: 1, medicine_id: 7, batch_number: 'B-SAFE-003', quantity: 450, expiry_date: daysFromNow(240), created_at: new Date().toISOString() },
+  { id: 12, hospital_id: 2, medicine_id: 5, batch_number: 'B-SAFE-004', quantity: 300, expiry_date: daysFromNow(300), created_at: new Date().toISOString() },
+  { id: 13, hospital_id: 4, medicine_id: 7, batch_number: 'B-SAFE-005', quantity: 850, expiry_date: daysFromNow(330), created_at: new Date().toISOString() },
 ];
 
-// Initial Demand History (last 30 days)
+// Initial Demand History across multiple facilities and medicines
 let demandHistory = [];
-for (let i = 30; i >= 1; i--) {
-  const date = daysFromNow(-i);
-  demandHistory.push({
-    id: 31 - i,
-    hospital_id: 1,
-    medicine_id: 1,
-    date,
-    consumption: Math.round(20 + Math.random() * 15),
-    patient_load: Math.round(150 + Math.random() * 50),
-    emergency_demand: Math.round(Math.random() * 5),
-    created_at: new Date().toISOString(),
-  });
+const trackedPairs = [
+  { hid: 1, mid: 1, base: 35 }, { hid: 1, mid: 2, base: 28 }, { hid: 1, mid: 5, base: 18 },
+  { hid: 2, mid: 1, base: 24 }, { hid: 2, mid: 2, base: 20 }, { hid: 3, mid: 1, base: 15 },
+  { hid: 4, mid: 7, base: 30 }, { hid: 5, mid: 2, base: 22 },
+];
+
+let dhId = 1;
+for (const pair of trackedPairs) {
+  for (let i = 20; i >= 1; i--) {
+    const date = daysFromNow(-i);
+    demandHistory.push({
+      id: dhId++,
+      hospital_id: pair.hid,
+      medicine_id: pair.mid,
+      date,
+      consumption: Math.round(pair.base + (Math.random() * 12 - 6)),
+      patient_load: Math.round(160 + (Math.random() * 40 - 20)),
+      emergency_demand: Math.round(Math.random() * 4),
+      created_at: new Date().toISOString(),
+    });
+  }
 }
 
-// In-Memory Storage for Requests & Activity Logs
-let requests = [];
+// Initial Supply Requests
+let requests = [
+  {
+    id: 1,
+    hospital_id: 2,
+    medicine_id: 1,
+    quantity_required: 100,
+    needed_by: daysFromNow(3),
+    urgency: 'Critical',
+    status: 'pending',
+    notes: 'Urgent stockout risk for Augmentin in Northern District',
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+  {
+    id: 2,
+    hospital_id: 1,
+    medicine_id: 5,
+    quantity_required: 50,
+    needed_by: daysFromNow(5),
+    urgency: 'Urgent',
+    status: 'in-transit',
+    notes: 'Avil 25 anti-allergic shortage replenishment',
+    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+  },
+  {
+    id: 3,
+    hospital_id: 3,
+    medicine_id: 11,
+    quantity_required: 75,
+    needed_by: daysFromNow(7),
+    urgency: 'Normal',
+    status: 'fulfilled',
+    notes: 'Routine buffer replenishment for Calpol',
+    created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+  },
+];
 let activityLog = [];
+
 
 // ==========================================
 // Data Operations
@@ -158,29 +242,44 @@ function getInventory({ hospital_id, medicine_id, limit = 100, offset = 0 } = {}
   return { rows, total };
 }
 
-function getBatches({ hospital_id, medicine_id, expiring_within_days, limit = 50, offset = 0 } = {}) {
+function getBatches({ hospital_id, medicine_id, expiring_within_days, status, limit = 50, offset = 0 } = {}) {
   let list = batches;
+  const today = daysFromNow(0);
+
   if (hospital_id) {
     list = list.filter((b) => b.hospital_id === parseInt(hospital_id, 10));
   }
   if (medicine_id) {
     list = list.filter((b) => b.medicine_id === parseInt(medicine_id, 10));
   }
+
+  if (status === 'expired') {
+    list = list.filter((b) => b.expiry_date < today);
+  } else if (status === 'active') {
+    list = list.filter((b) => b.expiry_date >= today);
+  }
+
   if (expiring_within_days !== undefined) {
     const days = parseInt(expiring_within_days, 10);
     const maxExpiry = daysFromNow(days);
-    const today = daysFromNow(0);
     list = list.filter((b) => b.expiry_date >= today && b.expiry_date <= maxExpiry);
   }
 
   const enriched = list.map((b) => {
     const h = getHospitalById(b.hospital_id);
-    const m = medicineDataset.findById(b.medicine_id) || { name: `Medicine #${b.medicine_id}`, unit: 'unit' };
+    const m = medicineDataset.findById(b.medicine_id) || { name: `Medicine #${b.medicine_id}`, unit: 'unit', category: 'General' };
+    const diffMs = new Date(b.expiry_date) - new Date();
+    const daysUntilExpiry = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const isExpired = daysUntilExpiry <= 0;
+
     return {
       ...b,
       hospital_name: h ? h.name : 'Unknown Hospital',
       medicine_name: m.name,
       medicine_unit: m.unit,
+      medicine_category: m.category,
+      is_expired: isExpired,
+      days_until_expiry: daysUntilExpiry,
     };
   });
 
@@ -188,6 +287,7 @@ function getBatches({ hospital_id, medicine_id, expiring_within_days, limit = 50
   const rows = enriched.slice(offset, offset + limit);
   return { rows, total };
 }
+
 
 function getDemandHistory({ hospital_id = 1, medicine_id, start_date, end_date, limit = 90 } = {}) {
   let list = demandHistory;
@@ -248,18 +348,35 @@ function createRequest({ hospital_id, medicine_id, quantity_required, needed_by,
   return newReq;
 }
 
-function getRequests({ hospital_id = 1, limit = 20 } = {}) {
-  const filtered = requests.filter((r) => r.hospital_id === parseInt(hospital_id, 10));
+function getRequests({ hospital_id, limit = 50 } = {}) {
+  let filtered = requests;
+  if (hospital_id) {
+    filtered = filtered.filter((r) => r.hospital_id === parseInt(hospital_id, 10));
+  }
   const enriched = filtered.map((r) => {
     const m = medicineDataset.findById(r.medicine_id) || { name: `Medicine #${r.medicine_id}`, unit: 'unit' };
+    const h = getHospitalById(r.hospital_id);
     return {
       ...r,
       medicine_name: m.name,
       medicine_unit: m.unit,
+      hospital_name: h ? h.name : `Hospital ${r.hospital_id}`,
     };
   });
   return enriched.slice(0, limit);
 }
+
+function updateRequestStatus(id, status) {
+  const numId = parseInt(id, 10);
+  const req = requests.find((r) => r.id === numId);
+  if (req) {
+    req.status = status;
+    req.updated_at = new Date().toISOString();
+    return req;
+  }
+  return null;
+}
+
 
 function recordStockReceived({ hospital_id = 1, medicine_id, batch_id, quantity, expiry_date, date_received }) {
   const hid = parseInt(hospital_id, 10);
@@ -353,6 +470,46 @@ function recordDailyUsage({ hospital_id = 1, medicine_id, units_used, date, emer
   return { inventory: inv, demand: demandEntry, activity: act };
 }
 
+// In-Memory Storage for Users
+const bcrypt = require('bcryptjs');
+let users = [
+  {
+    id: 1,
+    username: 'admin',
+    email: 'admin@medsupply.org',
+    password_hash: bcrypt.hashSync('MedSupply2026!', 10),
+    role: 'admin',
+    hospital_id: 1,
+    created_at: new Date().toISOString(),
+  },
+];
+
+function findUser(identifier) {
+  if (!identifier) return null;
+  const term = identifier.trim().toLowerCase();
+  return (
+    users.find(
+      (u) =>
+        (u.username && u.username.toLowerCase() === term) ||
+        (u.email && u.email.toLowerCase() === term)
+    ) || null
+  );
+}
+
+function createUser({ username, email, password_hash, role = 'hospital_admin', hospital_id = 1 }) {
+  const newUser = {
+    id: users.length + 1,
+    username: username.trim(),
+    email: email ? email.trim().toLowerCase() : null,
+    password_hash,
+    role,
+    hospital_id: parseInt(hospital_id, 10) || 1,
+    created_at: new Date().toISOString(),
+  };
+  users.push(newUser);
+  return newUser;
+}
+
 function getRecentEntries({ hospital_id = 1, limit = 20 } = {}) {
   const filtered = activityLog.filter((a) => a.hospital_id === parseInt(hospital_id, 10));
   return filtered.slice(0, limit);
@@ -366,7 +523,11 @@ module.exports = {
   getDemandHistory,
   createRequest,
   getRequests,
+  updateRequestStatus,
   recordStockReceived,
   recordDailyUsage,
   getRecentEntries,
+  findUser,
+  createUser,
 };
+

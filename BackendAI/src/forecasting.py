@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 import pandas as pd
 import joblib
@@ -155,4 +155,19 @@ def to_pulp_input(forecast_records: list[dict], safety_horizon_days: int = 7) ->
         "deficits":  deficits,
         "surpluses": surpluses,
     }
+
+
+def forecast_from_db(
+    hospital_id: Optional[int] = None,
+    medicine_id: Optional[int] = None,
+    days_per_period: int = 7,
+) -> list[dict]:
+    """
+    Fetch input records directly from live database / API,
+    run ML forecasting pipeline, and return structured predictions.
+    """
+    from predict import fetch_records_from_db
+    df = fetch_records_from_db(hospital_id=hospital_id, medicine_id=medicine_id)
+    return forecast_demand(df, days_per_period=days_per_period)
+
 

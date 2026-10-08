@@ -217,6 +217,69 @@ def forecast(req: ForecastRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/forecast/db", tags=["Forecasting"])
+@app.post("/forecast/db", tags=["Forecasting"])
+def forecast_from_database(
+    hospital_id: Optional[int] = None,
+    medicine_id: Optional[int] = None,
+    days_per_period: int = 7,
+):
+    """
+    Dynamically pulls input parameters directly from the database
+    and runs the XGBoost prediction pipeline on live records.
+    """
+    from predict import predict_from_db
+    try:
+        results_df = predict_from_db(
+            hospital_id=hospital_id,
+            medicine_id=medicine_id,
+            days_per_period=days_per_period,
+        )
+        records = results_df.to_dict(orient="records")
+        return {
+            "source": "database",
+            "hospital_id": hospital_id,
+            "medicine_id": medicine_id,
+            "count": len(records),
+            "forecasts": records,
+        }
+    except Exception as exc:
+        log.exception("Forecast from database error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/stockout/db", tags=["Risk"])
+@app.post("/stockout/db", tags=["Risk"])
+def stockout_from_database(
+    hospital_id: Optional[int] = None,
+    medicine_id: Optional[int] = None,
+    lead_time_days: int = 7,
+    safety_horizon: int = 14,
+):
+    """
+    Pulls live parameters from the database, forecasts future demand,
+    and classifies stockout risk tiers.
+    """
+    from forecasting import forecast_from_db
+    try:
+        forecasts = forecast_from_db(hospital_id=hospital_id, medicine_id=medicine_id)
+        risk_records = assess_stockout_risk(
+            forecasts,
+            lead_time_days_default=lead_time_days,
+            safety_horizon=safety_horizon,
+        )
+        summary = summarise_risk(risk_records)
+        return {
+            "source": "database",
+            "summary": summary,
+            "risk_records": [r.to_dict() for r in risk_records],
+        }
+    except Exception as exc:
+        log.exception("Stockout from database error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+
 @app.post("/stockout", tags=["Risk"])
 def stockout(req: StockoutRequest):
     """
@@ -428,3 +491,116 @@ def analyse(req: AnalyseRequest):
     except Exception as exc:
         log.exception("Analyse pipeline error")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/analyse/db", tags=["Pipeline"])
+@app.post("/analyse/db", tags=["Pipeline"])
+def analyse_from_database(
+    hospital_id: Optional[int] = None,
+    days_per_period: int = 7,
+    lead_time_days: int = 7,
+    safety_horizon: int = 14,
+    wastage_horizon: int = 30,
+    max_patient_load: int = 400,
+    min_transfer_qty: int = 10,
+):
+    """
+    End-to-End Orchestration directly from live database parameters:
+    1. Fetches live inventory & demand history from database.
+    2. Runs XGBoost demand forecasting.
+    3. Fetches live batches and evaluates expiry risks.
+    4. Evaluates shortage / stockout risks.
+    5. Prioritises deficits by urgency.
+    6. Solves optimal PuLP transfers across hospitals.
+    """
+    from predict import fetch_records_from_db, fetch_batches_from_db
+    try:
+        df_records = fetch_records_from_db(hospital_id=hospital_id)
+        raw_records = df_records.to_dict(orient="records")
+
+        # 1. Forecast
+        forecasts = forecast_demand(df_records, days_per_period=days_per_period)
+
+        # 2. Expiry
+        batches = fetch_batches_from_db(hospital_id=hospital_id)
+        expiry_records = []
+        expiry_summary = {}
+        expiry_map = {}
+
+        if batches:
+            expiry_records = assess_expiry_risk(
+                batches,
+                wastage_horizon=wastage_horizon,
+            )
+            expiry_summary = summarise_expiry(expiry_records)
+            forecasts = merge_expiry_into_forecast(forecasts, expiry_records)
+            expiry_map = build_donor_expiry_lookup(expiry_records)
+
+        # 3. Stockout
+        risk_records = assess_stockout_risk(
+            forecasts,
+            lead_time_days_default=lead_time_days,
+            safety_horizon=safety_horizon,
+        )
+        risk_summary = summarise_risk(risk_records)
+
+        # 4. Priority
+        deficit_dicts = [
+            r.to_dict() for r in risk_records
+            if r.risk_tier in (RISK_CRITICAL, RISK_HIGH)
+        ]
+        signal_map = {
+            (str(r["hospital_id"]), int(r["medicine_id"])): r
+            for r in raw_records
+        }
+        for d in deficit_dicts:
+            sig = signal_map.get((d["hospital_id"], int(d["medicine_id"])), {})
+            d.setdefault("patient_load", sig.get("patient_load", 0))
+            d.setdefault("emergency_demand", sig.get("emergency_demand", 0))
+            d.setdefault("outbreak_indicator", sig.get("outbreak_indicator", 0))
+
+        prioritised = score_deficits(
+            deficit_dicts,
+            safety_horizon=safety_horizon,
+            wastage_horizon=wastage_horizon,
+            max_patient_load=max_patient_load,
+            donor_expiry_lookup={
+                (h, m): days for (h, m), days in expiry_map.items()
+            } if expiry_map else None,
+        )
+
+        # 5. Redistribute
+        pulp_input = to_pulp_input(forecasts)
+        transfers = run_redistribution_all_medicines(
+            pulp_input={
+                "deficits": [p.to_dict() for p in prioritised],
+                "surpluses": pulp_input["surpluses"],
+            },
+            expiry_map=expiry_map or None,
+            use_osrm=False,
+            min_transfer_qty=min_transfer_qty,
+        )
+
+        serialised_transfers = {
+            str(mid): [t.to_dict() for t in tlist]
+            for mid, tlist in transfers.items()
+        }
+        total_transfers = sum(len(v) for v in transfers.values())
+
+        return {
+            "source": "database",
+            "hospital_id": hospital_id,
+            "pipeline": "forecast -> expiry -> stockout -> priority -> redistribute",
+            "forecast_count": len(forecasts),
+            "forecasts": forecasts,
+            "risk_summary": risk_summary,
+            "risk_records": [r.to_dict() for r in risk_records],
+            "expiry_summary": expiry_summary,
+            "deficits_ranked": [p.to_dict() for p in prioritised],
+            "total_transfers": total_transfers,
+            "transfers_by_medicine": serialised_transfers,
+        }
+    except Exception as exc:
+        log.exception("Analyse from database error")
+        raise HTTPException(status_code=500, detail=str(exc))
+

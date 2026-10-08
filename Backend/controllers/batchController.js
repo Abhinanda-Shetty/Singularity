@@ -35,13 +35,17 @@ const getBatches = asyncHandler(async (req, res) => {
     }
   }
 
+  const status = req.query.status;
+
   const { rows, total } = await Batch.findAll({
     hospital_id,
     medicine_id,
     expiring_within_days,
+    status,
     limit,
     offset,
   });
+
 
   res.json(successResponse(rows, null, {
     total,

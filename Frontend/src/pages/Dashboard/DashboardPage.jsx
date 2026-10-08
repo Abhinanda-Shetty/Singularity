@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, RefreshCw } from 'lucide-react';
 import KpiCard from '../../components/KpiCard';
 import DemandChart from '../../components/DemandChart';
 import StockDonutChart from '../../components/StockDonutChart';
@@ -13,26 +13,33 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState(null);
   const [hospital, setHospital] = useState(FALLBACK_PROFILE);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState('Just now');
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const data = await fetchDashboardSummary(1);
-        if (cancelled) return;
-        setSummary(data);
-        if (data.hospital) setHospital(data.hospital);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err.message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  const loadData = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchDashboardSummary(1);
+      setSummary(data);
+      if (data.hospital) setHospital(data.hospital);
+      const now = new Date();
+      setLastUpdatedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    load();
-    return () => { cancelled = true; };
+  };
+
+  useEffect(() => {
+    loadData(false);
   }, []);
+
 
   // Build KPI cards from live data (or show placeholders while loading)
   const kpiCards = [

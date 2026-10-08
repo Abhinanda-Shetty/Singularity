@@ -14,6 +14,7 @@ const authRoutes          = require('./routes/auth');
 const entriesRoutes       = require('./routes/entries');
 const requestsRoutes      = require('./routes/requests');
 const demandHistoryRoutes = require('./routes/demandHistory');
+const aiRoutes            = require('./routes/ai');
 const { notFoundMiddleware, errorMiddleware } = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 
@@ -44,6 +45,8 @@ app.use('/api/batches',        batchRoutes);
 app.use('/api/entries',        entriesRoutes);
 app.use('/api/requests',       requestsRoutes);
 app.use('/api/demand-history', demandHistoryRoutes);
+app.use('/api/ai',             aiRoutes);
+
 
 // ── 404 Middleware ────────────────────────────────────────────────
 app.use(notFoundMiddleware);
