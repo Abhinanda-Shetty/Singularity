@@ -15,7 +15,6 @@ export default function Sidebar() {
   const mainNav = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Inventory', path: '/inventory', icon: Pill },
-    { name: 'Forecast', path: '/forecast', icon: BarChart2 },
     { name: 'Risks & Alerts', path: '/risks', icon: AlertTriangle },
   ];
 

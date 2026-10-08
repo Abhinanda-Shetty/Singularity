@@ -1,8 +1,18 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pill, Package, AlertTriangle, Hourglass, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 export default function KpiCard({ data }) {
+  const navigate = useNavigate();
   const { title, value, change, isPositive, type, colorTheme, sparklineColor } = data;
+
+  const handleClick = () => {
+    if (type === 'risk') {
+      navigate('/risks?medicine=amoxicillin');
+    } else if (type === 'expiring') {
+      navigate('/risks?medicine=paracetamol');
+    }
+  };
 
   // Icon mapping
   const renderIcon = () => {
@@ -41,7 +51,12 @@ export default function KpiCard({ data }) {
   };
 
   return (
-    <div className="kpi-card">
+    <div 
+      className="kpi-card"
+      onClick={handleClick}
+      style={{ cursor: type === 'risk' || type === 'expiring' ? 'pointer' : 'default' }}
+      title={type === 'risk' ? 'Click to view Risks & Alerts' : undefined}
+    >
       <div className={`kpi-icon-box ${colorTheme}`}>
         {renderIcon()}
       </div>

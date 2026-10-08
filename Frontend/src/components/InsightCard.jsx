@@ -1,8 +1,16 @@
 import React from 'react';
-import { BarChart2, Users, Hourglass } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BarChart2, Users, Hourglass, ArrowRight } from 'lucide-react';
 
 export default function InsightCard({ item }) {
-  const { title, description, icon, variant } = item;
+  const navigate = useNavigate();
+  const { title, description, icon, variant, actionLink, featuredMedicine } = item;
+
+  const handleClick = () => {
+    if (actionLink) {
+      navigate(actionLink);
+    }
+  };
 
   const renderIcon = () => {
     switch (icon) {
@@ -18,13 +26,24 @@ export default function InsightCard({ item }) {
   };
 
   return (
-    <div className={`insight-card ${variant === 'urgent' ? 'urgent' : ''}`}>
+    <div 
+      className={`insight-card ${variant === 'urgent' ? 'urgent' : ''}`}
+      onClick={handleClick}
+      style={{ cursor: actionLink ? 'pointer' : 'default' }}
+      title={actionLink ? 'Click to view risk details' : undefined}
+    >
       <div className="insight-card-icon-wrap">
         {renderIcon()}
       </div>
-      <div className="insight-content">
+      <div className="insight-content" style={{ flex: 1 }}>
         <h3>{title}</h3>
         <p>{description}</p>
+        {featuredMedicine && (
+          <div style={{ marginTop: '4px', fontSize: '0.73rem', color: '#1F4D3A', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <span>{featuredMedicine}</span>
+            <ArrowRight size={12} strokeWidth={2.4} />
+          </div>
+        )}
       </div>
     </div>
   );
