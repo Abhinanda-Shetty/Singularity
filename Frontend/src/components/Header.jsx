@@ -1,8 +1,28 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, ChevronDown } from 'lucide-react';
-import { hospitalProfile } from '../data/mockData';
+import { fetchHospitalById } from '../services/api';
 
 export default function Header() {
+  const [hospital, setHospital] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHospitalById(1)
+      .then((res) => { if (!cancelled) setHospital(res.data); })
+      .catch(() => { /* silently ignore — header still renders without live data */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const name     = hospital?.name     ?? 'Hospital';
+  const location = hospital?.address  ?? '';
+  // Derive a 2-letter short code from the hospital name
+  const shortCode = name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+
   return (
     <header className="top-header">
       {/* Decorative organic background wave/leaves */}
@@ -25,11 +45,11 @@ export default function Header() {
         {/* Hospital Profile Pill */}
         <div className="hospital-profile-btn" role="button" tabIndex={0}>
           <div className="hospital-avatar">
-            {hospitalProfile.shortCode}
+            {shortCode || 'HA'}
           </div>
           <div className="hospital-info">
-            <span className="hospital-name">{hospitalProfile.name}</span>
-            <span className="hospital-location">{hospitalProfile.location}</span>
+            <span className="hospital-name">{name}</span>
+            {location && <span className="hospital-location">{location}</span>}
           </div>
           <ChevronDown className="dropdown-chevron" />
         </div>

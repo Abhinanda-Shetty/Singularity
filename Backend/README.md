@@ -1,232 +1,174 @@
-# Backend — Medical Supply Intelligence / Logistics
+# Backend — Medical Supply Intelligence API
 
-Node.js + Express REST API backend for the Singularity Medical Supply Intelligence system.
-
----
-
-## Tech Stack
-
-| Technology     | Version | Purpose                          |
-|----------------|---------|----------------------------------|
-| Node.js        | LTS     | Runtime                          |
-| Express.js     | 5.x     | HTTP framework                   |
-| PostgreSQL      | 14+     | Relational database               |
-| pg             | 8.x     | PostgreSQL client (node-postgres) |
-| dotenv         | 18.x    | Environment variable loading     |
-| cors           | 2.x     | CORS middleware                  |
-| nodemon        | 3.x     | Development auto-restart         |
+Node.js + Express REST API backend server connecting to PostgreSQL database for the MedSupply platform.
 
 ---
 
-## Prerequisites
+## Requirements
 
-- Node.js 18+ (LTS recommended)
-- PostgreSQL 14+ running locally or via Docker
-- npm 9+
-
----
-
-## Project Structure
-
-```
-Backend/
-├── src/
-│   ├── config/
-│   │   └── database.js         # PostgreSQL pool configuration
-│   ├── controllers/
-│   │   └── healthController.js # GET /api/health handler
-│   ├── middleware/
-│   │   ├── errorHandler.js     # 404 + centralized error middleware
-│   │   └── requestLogger.js    # Request/response logger
-│   ├── models/                 # (Phase 3) Query models per entity
-│   ├── routes/
-│   │   └── health.js           # Health check route
-│   ├── services/
-│   │   ├── aiService.js        # AI service client (placeholder)
-│   │   └── n8nService.js       # n8n service client (placeholder)
-│   ├── utils/
-│   │   ├── AppError.js         # Operational error class
-│   │   └── responseHelpers.js  # Standard response envelope helpers
-│   └── app.js                  # Express app setup
-│
-├── migrations/
-│   ├── runner.js               # Migration runner script
-│   └── sql/
-│       ├── 001_create_hospitals.sql
-│       ├── 002_create_medicines.sql
-│       ├── 003_create_inventory.sql
-│       ├── 004_create_batches.sql
-│       └── 005_create_demand_history.sql
-│
-├── seed/
-│   ├── runner.js               # Seed runner script
-│   └── seeders/
-│       ├── hospitals.js
-│       ├── medicines.js
-│       ├── inventory.js
-│       ├── batches.js
-│       └── demandHistory.js
-│
-├── docs/
-│   └── API_CONTRACT.md         # Full API documentation
-│
-├── .env.example                # Environment variable template
-├── server.js                   # Entry point with graceful shutdown
-├── package.json
-├── IMPLEMENTATION_PLAN.md      # Architecture and phase plan
-└── README.md
-```
+- **Node.js**: `v18.x` or higher (LTS recommended)
+- **npm**: `v9.x` or higher
+- **PostgreSQL**: `v14.x` or higher running locally on port `5432`
 
 ---
 
-## Quick Start
-
-### 1. Clone / navigate to the Backend directory
+## Installation
 
 ```bash
 cd Backend
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
 ```
 
-### 3. Configure environment
+---
+
+## PostgreSQL Setup
+
+1. Open your terminal or `psql` client:
+   ```bash
+   psql -U postgres
+   ```
+2. Create the target database:
+   ```sql
+   CREATE DATABASE singularity_db;
+   ```
+
+---
+
+## Environment Configuration
+
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your PostgreSQL credentials:
+Configure the environment variables in `.env`:
 
 ```env
+PORT=3000
+NODE_ENV=development
+
+# PostgreSQL Connection
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=singularity_db
 DB_USER=postgres
-DB_PASSWORD=your_password
-PORT=3000
-NODE_ENV=development
+DB_PASSWORD=your_postgres_password
+DB_POOL_MAX=10
+
+# CORS Allowed Origin
+CORS_ORIGIN=http://localhost:5173
+
+# Authentication & JWT
+JWT_SECRET=singularity_jwt_secret_key_change_in_prod
+JWT_EXPIRES_IN=8h
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_admin_password
+
+# External Integrations (Placeholders)
+AI_SERVICE_URL=http://localhost:8000
+N8N_TRIGGER_URL=http://localhost:5678/webhook/placeholder
 ```
 
-### 4. Create the database
+> 🔒 **Security Notice:** Do not commit `.env` or real passwords/secrets to Git.
 
-```sql
--- In psql or pgAdmin:
-CREATE DATABASE singularity_db;
-```
+---
 
-### 5. Run migrations
+## Migration
+
+Run schema migrations to initialize PostgreSQL tables:
 
 ```bash
 npm run migrate
 ```
 
-This will create all tables and indexes. Migrations are tracked in `schema_migrations` and are idempotent (safe to re-run).
+Migrations execute SQL files in `migrations/sql/` in sequence:
+- `001_create_hospitals.sql` — Hospital facility registry
+- `002_create_medicines.sql` — Master medicine SKUs & categories
+- `003_create_inventory.sql` — Facility stock balances & safety stock limits
+- `004_create_batches.sql` — Batch lots & expiration dates
+- `005_create_demand_history.sql` — Daily consumption tracking
+- `006_create_activity_log.sql` — Audit trails & recent activities
+- `007_create_requests.sql` — Inter-hospital supply requests
 
-### 6. Seed development data (optional)
+---
+
+## Seed
+
+Populate the database with initial development and demo data:
 
 ```bash
 npm run seed
 ```
 
-This populates hospitals, medicines, inventory, batches, and 30 days of demand history.
+- Seeders insert demo hospital profiles, medicine items, inventory balances, batch records, supply requests, and 30 days of demand history.
+- All seeded data is for **development and demonstration purposes only**.
 
-### 7. Start the development server
+---
+
+## Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Server starts on `http://localhost:3000`.
-
----
-
-## Available Scripts
-
-| Script             | Command               | Description                          |
-|--------------------|-----------------------|--------------------------------------|
-| `npm run dev`      | `nodemon server.js`   | Development server with auto-restart |
-| `npm start`        | `node server.js`      | Production server                    |
-| `npm run migrate`  | `node migrations/runner.js` | Run pending database migrations |
-| `npm run seed`     | `node seed/runner.js` | Seed development data                |
+The server starts on `http://localhost:3000`.
 
 ---
 
 ## API Endpoints
 
-### Phase 1 (Implemented)
+### Health & Auth
+- `GET /api/health` — Returns server health status and database connectivity.
+- `POST /api/auth/login` — Authenticates user credentials and returns JWT bearer token.
+- `GET /api/auth/me` — Returns authenticated user profile.
 
-| Method | Endpoint      | Description               |
-|--------|---------------|---------------------------|
-| GET    | /api/health   | Server + DB health check  |
+### Core Resources
+- `GET /api/hospitals` — Returns list of network hospitals (supports `?type=`, `?page=`, `?limit=`).
+- `GET /api/hospitals/:id` — Returns single hospital profile by ID.
+- `GET /api/medicines` — Returns master catalog of medicines (supports `?category=`, `?critical=`, `?page=`, `?limit=`).
+- `GET /api/medicines/:id` — Returns single medicine SKU details.
+- `GET /api/inventory` — Returns inventory stock balances (supports `?hospital_id=`, `?medicine_id=`, `?page=`, `?limit=`).
+- `GET /api/batches` — Returns batch lots with expiry dates (supports `?hospital_id=`, `?medicine_id=`, `?expiring_within_days=`, `?page=`, `?limit=`).
 
-### Phase 3 (Planned)
-
-| Method | Endpoint           | Description                    |
-|--------|--------------------|--------------------------------|
-| GET    | /api/hospitals     | List hospitals                 |
-| GET    | /api/hospitals/:id | Get single hospital            |
-| GET    | /api/medicines     | List medicines                 |
-| GET    | /api/medicines/:id | Get single medicine            |
-| GET    | /api/inventory     | List inventory (filterable)    |
-| GET    | /api/batches       | List batches (filterable)      |
-
-See `docs/API_CONTRACT.md` for full request/response documentation.
-
----
-
-## Database Schema
-
-### Core Tables (Phase 1)
-
-| Table           | Purpose                                    |
-|-----------------|--------------------------------------------|
-| hospitals       | Master registry of all hospitals           |
-| medicines       | Master catalog of all medicines            |
-| inventory       | Current stock level per hospital/medicine  |
-| batches         | Physical batches with expiry tracking      |
-| demand_history  | Daily consumption history for AI forecasting|
-| schema_migrations | Tracks applied migrations               |
-
-### Phase B Tables (Phase 4+)
-
-| Table           | Purpose                                    |
-|-----------------|--------------------------------------------|
-| forecasts       | AI-generated demand predictions            |
-| priorities      | AI-assigned redistribution priorities      |
-| transfers       | Inter-hospital medicine transfers          |
-| suppliers       | Supplier master data                       |
-| supply_orders   | Procurement orders                         |
-| negotiations    | n8n negotiation outcomes                   |
+### Inventory Transactions & Requests
+- `POST /api/entries` — Logs incoming stock shipments (`stock_received`) or ward consumption (`usage`).
+- `GET /api/entries/recent` — Returns recent audit log activity entries for a hospital facility.
+- `POST /api/requests` — Submits a medicine supply request to network hospitals (`urgency: Normal|Urgent|Critical`).
+- `GET /api/requests` — Returns active medicine supply requests.
+- `GET /api/demand-history` — Returns historical daily medicine demand records.
 
 ---
 
-## Integration Contracts
+## Current Features
 
-### AI Service (BackendAI)
-- Base URL: set `AI_SERVICE_URL` in `.env`
-- Contract schema: **Not yet defined** — see `docs/API_CONTRACT.md`
-
-### n8n Automation
-- Trigger URL: set `N8N_TRIGGER_URL` in `.env`
-- Webhook endpoint: `POST /api/negotiations/webhook` (Phase 6)
-- Contract schema: **Not yet defined** — see `docs/API_CONTRACT.md`
-
-### Frontend
-- Frontend communicates exclusively with this Backend
-- No direct database access from Frontend
-- All responses follow standard JSON envelope (see `docs/API_CONTRACT.md`)
+- Express 5 REST API architecture with modular controllers, routes, and centralized error handling.
+- PostgreSQL connection pool (`pg`) with environment-configurable pooling limits.
+- JWT authentication middleware and password security.
+- Comprehensive transactional workflows for stock receipt, usage, and inter-facility supply requests.
 
 ---
 
-## Development Notes
+## AI Integration Status
 
-- Never commit `.env` — only commit `.env.example`
-- Run `npm run migrate` before `npm run seed`
-- Seeds are idempotent — safe to re-run
-- Error middleware is centralized in `src/middleware/errorHandler.js`
-- Use `AppError` class for operational errors (validation, not-found, etc.)
-- Use `asyncHandler` wrapper for all async route handlers
+- **Status:** `AI PENDING` (Separate BackendAI Service)
+- **Details:** Time-series demand forecasting (XGBoost), stockout risk probability scoring, PuLP linear programming optimization for inter-hospital redistribution, and automated n8n workflows will be integrated via `BackendAI` in future releases.
+- **Current Behavior:** Demand history APIs return empirical consumption data; AI forecast overlays and risk modules are marked as pending.
+
+---
+
+## Troubleshooting
+
+1. **Database connection failed (`ECONNREFUSED` / `password authentication failed`):**
+   - Verify PostgreSQL is running on port `5432`.
+   - Check `DB_USER`, `DB_PASSWORD`, and `DB_NAME` in `.env`.
+   - Run `psql -U postgres -d singularity_db` to test local database access.
+2. **Port 3000 in use:**
+   - Change `PORT` in `.env` (e.g. `PORT=3001`) and update `VITE_API_BASE_URL` in `Frontend/.env`.
+3. **Migration fails on existing tables:**
+   - Migrations track applied scripts in table `schema_migrations`. If needed, re-create the database:
+     ```sql
+     DROP DATABASE singularity_db;
+     CREATE DATABASE singularity_db;
+     ```
+   - Then re-run `npm run migrate && npm run seed`.

@@ -1,130 +1,128 @@
-// Mock API layer for Medical Supply Intelligence Entry Page
-// Contains mock methods and required endpoint specifications
+/**
+ * EntryPage/api.js
+ * All API calls now go through the real backend via services/api.js.
+ *
+ * getMedicines        → GET /api/medicines?limit=100
+ * getHospitalProfile  → GET /api/hospitals/1
+ * getRecentEntries    → GET /api/entries/recent?hospital_id=1
+ * saveEntry           → POST /api/entries  (stock or usage)
+ * sendMedicineRequest → POST /api/requests
+ */
 
 import {
-  MOCK_MEDICINES,
-  MOCK_HOSPITAL_PROFILE,
-  INITIAL_RECENT_ENTRIES,
-} from './constants';
+  fetchMedicines,
+  fetchHospitalById,
+  fetchRecentEntries,
+  createEntry,
+  createRequest,
+} from '../../services/api';
 
-let inMemoryMedicines = MOCK_MEDICINES.map((m) => ({ ...m, existingBatches: [...m.existingBatches] }));
-let inMemoryEntries = [...INITIAL_RECENT_ENTRIES];
+const HOSPITAL_ID = 1; // prototype: single hospital
 
-// GET /api/medicines
+// ─────────────────────────────────────────────────────────────────
+// GET medicines — shape backend rows for the entry forms
+// ─────────────────────────────────────────────────────────────────
 export async function getMedicines() {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(inMemoryMedicines.map((m) => ({ ...m, existingBatches: [...m.existingBatches] })));
-    }, 100);
-  });
+  try {
+    const res = await fetchMedicines({ limit: 100 });
+    return (res.data || []).map((med) => ({
+      id:                   String(med.id),
+      name:                 med.name,
+      unit:                 med.unit,
+      currentStock:         0,           // will be fetched per-hospital in future
+      expectedDemand14Days: 0,           // AI-dependent — not yet available
+      usualRequestAmount:   100,
+      existingBatches:      [],          // batch list per-medicine requires extra query
+    }));
+  } catch {
+    return [];
+  }
 }
 
-// GET /api/entries/recent
-export async function getRecentEntries() {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([...inMemoryEntries]);
-    }, 100);
-  });
-}
-
-// GET /api/hospital/profile (mock helper for current signed-in user's facility)
+// ─────────────────────────────────────────────────────────────────
+// GET hospital profile
+// ─────────────────────────────────────────────────────────────────
 export async function getHospitalProfile() {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ ...MOCK_HOSPITAL_PROFILE });
-    }, 100);
-  });
+  try {
+    const res = await fetchHospitalById(HOSPITAL_ID);
+    const h = res.data;
+    if (!h) throw new Error('No data');
+    return {
+      name:      h.name,
+      shortName: h.name.split(' ').slice(0, 2).join(' '),
+      beds:      h.patient_capacity ?? 0,
+      location:  h.address ?? '',
+      initial:   h.name[0]?.toUpperCase() ?? 'H',
+    };
+  } catch {
+    return { name: 'Hospital', shortName: 'Hospital', beds: 0, location: '', initial: 'H' };
+  }
 }
 
-// POST /api/entries
-// Handles both 'Stock received' and 'Daily usage' records
+// ─────────────────────────────────────────────────────────────────
+// GET recent entries/activity
+// ─────────────────────────────────────────────────────────────────
+export async function getRecentEntries() {
+  try {
+    const res = await fetchRecentEntries({ hospital_id: HOSPITAL_ID, limit: 20 });
+    return res.data || [];
+  } catch {
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// POST stock received or daily usage
+// ─────────────────────────────────────────────────────────────────
 export async function saveEntry(entryData) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const isStock = entryData.type === 'stock';
-      const targetMed = inMemoryMedicines.find((m) => m.id === entryData.medicineId);
-      const medName = targetMed ? targetMed.name.split(' (')[0] : 'Medicine';
-
-      // Immutable state update for mock medicines
-      inMemoryMedicines = inMemoryMedicines.map((med) => {
-        if (med.id !== entryData.medicineId) return med;
-
-        if (isStock) {
-          const qty = Number(entryData.quantity || 0);
-          const batches = entryData.batchId && !med.existingBatches.includes(entryData.batchId)
-            ? [...med.existingBatches, entryData.batchId]
-            : [...med.existingBatches];
-          return {
-            ...med,
-            currentStock: med.currentStock + qty,
-            existingBatches: batches,
-          };
-        } else {
-          const used = Number(entryData.unitsUsed || 0);
-          return {
-            ...med,
-            currentStock: Math.max(0, med.currentStock - used),
-          };
-        }
-      });
-
-      let newRecord;
-      if (isStock) {
-        newRecord = {
-          id: `entry-${Date.now()}`,
-          title: medName,
-          time: 'Just now',
-          pillText: `+${Number(entryData.quantity || 0).toLocaleString()} units received`,
-          pillType: 'received',
-          subtitle: `Batch #${entryData.batchId}`,
-        };
-      } else {
-        newRecord = {
-          id: `entry-${Date.now()}`,
-          title: medName,
-          time: 'Just now',
-          pillText: `-${Number(entryData.unitsUsed || 0).toLocaleString()} units used`,
-          pillType: 'used',
-          subtitle: 'Ward clinical draw',
-        };
-      }
-
-      inMemoryEntries = [newRecord, ...inMemoryEntries];
-
-      resolve({
-        success: true,
-        message: 'Saved. The plan is updating.',
-        entry: newRecord,
-      });
-    }, 150);
-  });
+  if (entryData.type === 'stock') {
+    const res = await createEntry({
+      type:        'stock',
+      hospital_id: HOSPITAL_ID,
+      medicine_id: parseInt(entryData.medicineId, 10),
+      batch_id:    entryData.batchId,
+      quantity:    entryData.quantity,
+      expiry_date: entryData.expiryDate,
+      date_received: entryData.dateReceived,
+    });
+    return {
+      success: res.success,
+      message: res.message || 'Stock saved.',
+      entry:   res.data,
+    };
+  } else {
+    // usage
+    const res = await createEntry({
+      type:            'usage',
+      hospital_id:     HOSPITAL_ID,
+      medicine_id:     parseInt(entryData.medicineId, 10),
+      units_used:      entryData.unitsUsed,
+      date:            entryData.date || new Date().toISOString().split('T')[0],
+      emergency_cases: entryData.emergencyCases || 0,
+      patient_load:    entryData.patientLoad || 0,
+    });
+    return {
+      success: res.success,
+      message: res.message || 'Usage saved.',
+      entry:   res.data,
+    };
+  }
 }
 
-// POST /api/requests
-// Handles medicine tablet requests
+// ─────────────────────────────────────────────────────────────────
+// POST medicine request
+// ─────────────────────────────────────────────────────────────────
 export async function sendMedicineRequest(requestData) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const med = inMemoryMedicines.find((m) => m.id === requestData.medicineId);
-      const medName = med ? med.name.split(' (')[0] : 'Medicine';
-
-      const newRecord = {
-        id: `req-${Date.now()}`,
-        title: `Request: ${medName}`,
-        time: 'Just now',
-        pillText: `${Number(requestData.quantityRequired || 0).toLocaleString()} tablets · ${requestData.urgency}`,
-        pillType: 'urgent',
-        subtitle: `Needed by ${requestData.neededBy || 'soon'} · Looking for stock`,
-      };
-
-      inMemoryEntries = [newRecord, ...inMemoryEntries];
-
-      resolve({
-        success: true,
-        message: 'Request sent. We are looking for hospitals that can help.',
-        request: newRecord,
-      });
-    }, 150);
+  const res = await createRequest({
+    hospital_id:       HOSPITAL_ID,
+    medicine_id:       parseInt(requestData.medicineId, 10),
+    quantity_required: requestData.quantityRequired,
+    needed_by:         requestData.neededBy,
+    urgency:           requestData.urgency || 'Normal',
   });
+  return {
+    success: res.success,
+    message: res.message || 'Request sent.',
+    request: res.data,
+  };
 }

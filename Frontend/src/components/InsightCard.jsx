@@ -1,4 +1,3 @@
-import React from 'react';
 import { BarChart2, Users, Hourglass } from 'lucide-react';
 
 export default function InsightCard({ item }) {
