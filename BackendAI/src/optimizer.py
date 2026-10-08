@@ -295,7 +295,21 @@ def _run_pulp(
             prob += pulp.lpSum(related) <= donor_surplus_map[d_id]
 
     # Recipient requirement constraints
-    shortage_map = {r["hospital_id"]: max(0.0, float(r.get("shortage_quantity", 0))) for r in recipients}
+    shortage_map = {
+        r["hospital_id"]: max(
+            0.0,
+            float(
+                r["shortage_quantity"]
+                if "shortage_quantity" in r and r["shortage_quantity"] is not None
+                else (
+                    float(r.get("safety_stock", 0))
+                    + float(r.get("predicted_future_demand", 0))
+                    - float(r.get("current_stock", 0))
+                )
+            )
+        )
+        for r in recipients
+    }
     for r in recipients:
         r_id = r["hospital_id"]
         related = [xvars[(d_id, r_id)] for (d_id, rr) in feasible_pairs if rr == r_id]
@@ -439,11 +453,14 @@ def run_redistribution(
     # Compute available surplus (can be donated without breaching safety stock)
     donors: list[dict] = []
     for s in surpluses:
-        transferable = (
-            float(s.get("current_stock", 0))
-            - float(s.get("safety_stock", 0))
-            - float(s.get("predicted_future_demand", 0))
-        )
+        if "surplus" in s and float(s["surplus"]) > 0:
+            transferable = float(s["surplus"])
+        else:
+            transferable = (
+                float(s.get("current_stock", 0))
+                - float(s.get("safety_stock", 0))
+                - float(s.get("predicted_future_demand", 0))
+            )
         if transferable > min_transfer_qty:
             donors.append({**s, "surplus": transferable})
 
@@ -531,3 +548,79 @@ def run_redistribution_all_medicines(
             results[mid] = transfers
 
     return results
+
+
+# -- CLI test runner -----------------------------------------------------------
+
+if __name__ == "__main__":
+    import argparse
+    import json
+    import pandas as pd
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Run PuLP medical supply redistribution optimizer")
+    parser.add_argument(
+        "--predictions", type=Path, default=Path(__file__).parent.parent / "data" / "predictions.csv",
+        help="Path to input predictions CSV (default: data/predictions.csv)"
+    )
+    parser.add_argument(
+        "--min-qty", type=int, default=DEFAULT_MIN_TRANSFER_QTY,
+        help="Minimum transferable quantity (default: 5 units)"
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print("  SINGULARITY - PuLP Medical Supply Redistribution Optimizer")
+    print("=" * 70)
+
+    if not args.predictions.exists():
+        print(f"Error: {args.predictions} not found.")
+        sys.exit(1)
+
+    print(f"\n[1/3] Loading forecast data from: {args.predictions}")
+    df = pd.read_csv(args.predictions)
+    records = df.to_dict("records")
+    print(f"      Total records loaded: {len(records)}")
+
+    # Import helper from forecasting
+    try:
+        from forecasting import to_pulp_input
+    except ImportError:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from forecasting import to_pulp_input
+
+    print("\n[2/3] Categorizing deficits and surplus donor availability ...")
+    pulp_inp = to_pulp_input(records)
+    print(f"      Deficit hospital-medicine items: {len(pulp_inp['deficits'])}")
+    print(f"      Surplus hospital-medicine items: {len(pulp_inp['surpluses'])}")
+
+    print("\n[3/3] Solving Linear Programming optimization via PuLP CBC solver ...")
+    transfers_by_med = run_redistribution_all_medicines(
+        pulp_input=pulp_inp,
+        min_transfer_qty=args.min_qty,
+    )
+
+    total_transfers = sum(len(v) for v in transfers_by_med.values())
+    total_units = sum(t.transfer_qty for tlist in transfers_by_med.values() for t in tlist)
+
+    print("\n" + "=" * 70)
+    print(f"  OPTIMIZATION SUMMARY: {total_transfers} transfers recommended ({total_units:.0f} units)")
+    print("=" * 70)
+
+    for mid, tlist in transfers_by_med.items():
+        med_name = tlist[0].medicine_name if tlist else f"ID {mid}"
+        cat = tlist[0].medicine_category if tlist else ""
+        print(f"\n Medicine: {med_name} (ID: {mid}, Category: {cat})")
+        print(f" {'-' * 66}")
+        for t in tlist:
+            print(f"   * FROM: {t.donor_hospital_name} ({t.donor_hospital_id})")
+            print(f"     TO  : {t.recipient_hospital_name} ({t.recipient_hospital_id})")
+            print(f"     QTY : {t.transfer_qty:.0f} units | DISTANCE: {t.distance_km:.1f} km | ETA: {t.transport_time_days * 24:.1f} hrs")
+            if t.notes:
+                for n in t.notes:
+                    print(f"     NOTE: {n}")
+            print()
+
+    print("Redistribution optimization complete.")
+

@@ -110,12 +110,13 @@ def forecast_demand(
 
 # -- Stub: PuLP integration interface -----------------------------------------
 
-def to_pulp_input(forecast_records: list[dict]) -> dict:
+def to_pulp_input(forecast_records: list[dict], safety_horizon_days: int = 7) -> dict:
     """
     Convert forecast output to a structured dict consumable by the PuLP
     redistribution optimizer.
 
-    This is a minimal stub - the PuLP engine is not yet implemented.
+    Computes shortage_quantity for deficit records and surplus capacity
+    for donor records.
 
     Returns
     -------
@@ -123,21 +124,35 @@ def to_pulp_input(forecast_records: list[dict]) -> dict:
         "hospitals"   : list of unique hospital IDs
         "medicines"   : list of unique medicine IDs
         "forecasts"   : the raw forecast records
-        "deficits"    : records where days_to_stockout < safety horizon
+        "deficits"    : records where days_to_stockout < safety horizon with shortage_quantity > 0
         "surpluses"   : records with excess stock above safety stock + forecast
     """
-    SAFETY_HORIZON_DAYS = 7  # flag as deficit if stockout < 7 days
+    enriched = []
+    for r in forecast_records:
+        rec = dict(r)
+        current = float(rec.get("current_stock", 0))
+        safety  = float(rec.get("safety_stock", 0))
+        demand  = float(rec.get("predicted_future_demand", 0))
 
-    deficits  = [r for r in forecast_records if r["days_to_stockout"] < SAFETY_HORIZON_DAYS]
+        needed = safety + demand - current
+        rec["shortage_quantity"] = round(max(0.0, needed), 2)
+        rec["surplus"] = round(max(0.0, current - (safety + demand)), 2)
+        enriched.append(rec)
+
+    deficits  = [
+        r for r in enriched
+        if float(r.get("days_to_stockout", 0)) < safety_horizon_days and r["shortage_quantity"] > 0
+    ]
     surpluses = [
-        r for r in forecast_records
-        if r["current_stock"] > r["safety_stock"] + r["predicted_future_demand"]
+        r for r in enriched
+        if r["surplus"] > 0
     ]
 
     return {
-        "hospitals": list({r["hospital_id"] for r in forecast_records}),
-        "medicines": list({r["medicine_id"] for r in forecast_records}),
-        "forecasts": forecast_records,
+        "hospitals": list({r["hospital_id"] for r in enriched}),
+        "medicines": list({r["medicine_id"] for r in enriched}),
+        "forecasts": enriched,
         "deficits":  deficits,
         "surpluses": surpluses,
     }
+

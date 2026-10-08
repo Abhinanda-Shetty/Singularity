@@ -220,7 +220,7 @@ def _compute_priority_score(
         "outbreak":         _score_outbreak(rec.outbreak_indicator),
         "criticality":      _score_criticality(rec.medicine_category, critical_categories),
         "region":           _score_region(rec.region_type),
-        "donor_expiry":     _score_donor_expiry(rec.donor_expiry_days, wastage_horizon),
+        "expiry_donor":     _score_donor_expiry(rec.donor_expiry_days, wastage_horizon),
     }
 
     score = sum(sub[k] * WEIGHTS[k] for k in WEIGHTS)
