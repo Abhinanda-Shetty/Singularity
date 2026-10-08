@@ -1,0 +1,13 @@
+{
+  "python.defaultInterpreterPath": "C:\\venvs\\singularity\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "C:\\venvs\\singularity\\Lib\\site-packages",
+    "${workspaceFolder}/BackendAI/src",
+    "${workspaceFolder}/BackendAI"
+  ],
+  "python.autoComplete.extraPaths": [
+    "C:\\venvs\\singularity\\Lib\\site-packages",
+    "${workspaceFolder}/BackendAI/src",
+    "${workspaceFolder}/BackendAI"
+  ]
+}
