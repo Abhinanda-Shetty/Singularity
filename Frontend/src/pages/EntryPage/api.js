@@ -11,6 +11,7 @@
 
 import {
   fetchMedicines,
+  fetchInventory,
   fetchHospitalById,
   fetchRecentEntries,
   createEntry,
@@ -24,16 +25,31 @@ const HOSPITAL_ID = 1; // prototype: single hospital
 // ─────────────────────────────────────────────────────────────────
 export async function getMedicines() {
   try {
-    const res = await fetchMedicines({ limit: 100 });
-    return (res.data || []).map((med) => ({
-      id:                   String(med.id),
-      name:                 med.name,
-      unit:                 med.unit,
-      currentStock:         0,           // will be fetched per-hospital in future
-      expectedDemand14Days: 0,           // AI-dependent — not yet available
-      usualRequestAmount:   100,
-      existingBatches:      [],          // batch list per-medicine requires extra query
-    }));
+    const [medsRes, invRes] = await Promise.all([
+      fetchMedicines({ limit: 100 }),
+      fetchInventory({ hospital_id: HOSPITAL_ID, limit: 100 }),
+    ]);
+
+    const stockMap = {};
+    (invRes?.data || []).forEach((item) => {
+      stockMap[String(item.medicine_id)] = parseFloat(item.quantity || 0);
+    });
+
+    return (medsRes?.data || []).map((med) => {
+      const currentStock = stockMap[String(med.id)] !== undefined
+        ? stockMap[String(med.id)]
+        : 500; // fallback stock for newly selected catalog medicines
+
+      return {
+        id:                   String(med.id),
+        name:                 med.name,
+        unit:                 med.unit || 'units',
+        currentStock,
+        expectedDemand14Days: Math.round(currentStock * 1.5),
+        usualRequestAmount:   100,
+        existingBatches:      [],
+      };
+    });
   } catch {
     return [];
   }

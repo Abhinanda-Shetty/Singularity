@@ -11,20 +11,14 @@
 
 require('dotenv').config();
 
-const { Pool } = require('pg');
+const { getPool, disconnectDB } = require('../config/database');
 const hospitalsSeeder = require('./seeders/hospitals');
 const medicinesSeeder = require('./seeders/medicines');
 const inventorySeeder = require('./seeders/inventory');
 const batchesSeeder = require('./seeders/batches');
 const demandHistorySeeder = require('./seeders/demandHistory');
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  database: process.env.DB_NAME || 'singularity_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-});
+const pool = getPool();
 
 async function runSeeds() {
   const client = await pool.connect();

@@ -16,15 +16,8 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  database: process.env.DB_NAME || 'singularity_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-});
+const { getPool, disconnectDB } = require('../config/database');
+const pool = getPool();
 
 const MIGRATIONS_DIR = path.join(__dirname, 'sql');
 

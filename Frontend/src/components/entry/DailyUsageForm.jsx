@@ -52,8 +52,13 @@ export default function DailyUsageForm({ medicines = [], onSubmitSuccess }) {
     }
 
     // Validation: cannot use more than stock
-    if (selectedMedicine && usedNum > selectedMedicine.currentStock) {
-      newErrors.push('You cannot use more than the stock you have.');
+    if (selectedMedicine) {
+      const available = Number(selectedMedicine.currentStock ?? 0);
+      if (available > 0 && usedNum > available) {
+        newErrors.push(`You cannot use more than the stock you have (${available.toLocaleString()} ${selectedMedicine.unit} available).`);
+      } else if (available === 0 && usedNum > 0) {
+        newErrors.push(`No available stock for ${selectedMedicine.name} (0 ${selectedMedicine.unit}). Please record stock received first.`);
+      }
     }
 
     if (newErrors.length > 0) {
@@ -175,7 +180,9 @@ export default function DailyUsageForm({ medicines = [], onSubmitSuccess }) {
         <div className="entry-info-callout">
           <InfoIcon size={18} />
           <span className="entry-field-helper">
-            You cannot use more than the stock you have.
+            {selectedMedicine && Number(selectedMedicine.currentStock) > 0
+              ? `You cannot use more than the stock you have (${Number(selectedMedicine.currentStock).toLocaleString()} ${selectedMedicine.unit} available).`
+              : 'You cannot use more than the stock you have.'}
           </span>
         </div>
 
