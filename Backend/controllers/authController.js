@@ -3,6 +3,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dataStore = require('../services/dataStore');
+const Hospital = require('../models/Hospital');
 const { query } = require('../config/database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { successResponse, errorResponse } = require('../utils/responseHelpers');
@@ -25,10 +26,22 @@ function generateToken(user) {
 
 /**
  * POST /api/auth/signup
- * Register a new user in the database.
+ * Register a new user in the database (with optional new facility registration).
  */
 const signup = asyncHandler(async (req, res) => {
-  const { username, email, password, hospital_id = 1, role = 'hospital_admin' } = req.body;
+  const {
+    username,
+    email,
+    password,
+    hospital_id,
+    role = 'hospital_admin',
+    hospital_name,
+    hospital_type = 'general',
+    hospital_address,
+    patient_capacity = 300,
+    latitude,
+    longitude,
+  } = req.body;
 
   if (!username || !username.trim()) {
     throw new AppError('Username is required.', 400, 'VALIDATION_ERROR');
@@ -66,10 +79,32 @@ const signup = asyncHandler(async (req, res) => {
     );
   }
 
-  // 2. Hash password
+  // 2. Create new facility if hospital_name is provided
+  let assignedHospitalId = parseInt(hospital_id, 10) || 1;
+  let newHospital = null;
+
+  if (hospital_name && hospital_name.trim()) {
+    try {
+      newHospital = await Hospital.create({
+        name: hospital_name.trim(),
+        type: hospital_type || 'general',
+        address: hospital_address || 'India Regional Healthcare Center',
+        patient_capacity: parseInt(patient_capacity, 10) || 300,
+        latitude,
+        longitude,
+      });
+      if (newHospital) {
+        assignedHospitalId = newHospital.id;
+      }
+    } catch (hospErr) {
+      console.warn('[authController] Failed to auto-register hospital, defaulting to hospital #1:', hospErr.message);
+    }
+  }
+
+  // 3. Hash password
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // 3. Insert user into DB or resilient dataStore
+  // 4. Insert user into DB or resilient dataStore
   let createdUser = null;
 
   try {
@@ -77,7 +112,7 @@ const signup = asyncHandler(async (req, res) => {
       `INSERT INTO users (username, email, password_hash, role, hospital_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, username, email, role, hospital_id, created_at`,
-      [cleanUsername, cleanEmail, passwordHash, role, parseInt(hospital_id, 10) || 1]
+      [cleanUsername, cleanEmail, passwordHash, role, assignedHospitalId]
     );
     createdUser = insertRes.rows[0];
   } catch {
@@ -86,11 +121,11 @@ const signup = asyncHandler(async (req, res) => {
       email: cleanEmail,
       password_hash: passwordHash,
       role,
-      hospital_id,
+      hospital_id: assignedHospitalId,
     });
   }
 
-  // 4. Generate JWT
+  // 5. Generate JWT
   const token = generateToken(createdUser);
 
   return res.status(201).json(
@@ -104,11 +139,13 @@ const signup = asyncHandler(async (req, res) => {
           role: createdUser.role,
           hospital_id: createdUser.hospital_id,
         },
+        hospital: newHospital || null,
       },
-      'Account created successfully.'
+      'Account and hospital facility registered successfully.'
     )
   );
 });
+
 
 /**
  * POST /api/auth/login

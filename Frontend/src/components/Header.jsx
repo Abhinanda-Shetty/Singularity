@@ -8,29 +8,39 @@ import {
   CheckCircle2, 
   X, 
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  Building2,
+  Check
 } from 'lucide-react';
-import { fetchHospitalById, fetchBatches, fetchInventory } from '../services/api';
+import { fetchHospitalById, fetchHospitals, fetchBatches, fetchInventory, getUser, saveSession, getToken } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
   const navigate = useNavigate();
+  const user = getUser();
+  const [activeHospitalId, setActiveHospitalId] = useState(user?.hospital_id || 1);
   const [hospital, setHospital] = useState(null);
+  const [allHospitals, setAllHospitals] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [isHospOpen, setIsHospOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('ALL');
   const dropdownRef = useRef(null);
+  const hospDropdownRef = useRef(null);
 
   // Load hospital metadata and generate alerts from expired batches and low stocks
   const loadAlerts = async () => {
     try {
-      const [hospRes, batchRes, invRes] = await Promise.all([
-        fetchHospitalById(1).catch(() => null),
+      const [hospRes, allHospRes, batchRes, invRes] = await Promise.all([
+        fetchHospitalById(activeHospitalId).catch(() => null),
+        fetchHospitals({ limit: 50 }).catch(() => ({ data: [] })),
         fetchBatches({ limit: 100 }).catch(() => ({ data: [] })),
         fetchInventory({ limit: 100 }).catch(() => ({ data: [] })),
       ]);
 
       if (hospRes?.data) setHospital(hospRes.data);
+      if (allHospRes?.data) setAllHospitals(allHospRes.data);
+
 
       const batchList = batchRes?.data || [];
       const invList = invRes?.data || [];
@@ -98,20 +108,33 @@ export default function Header() {
     loadAlerts();
     const interval = setInterval(loadAlerts, 45000); // refresh every 45s
     return () => clearInterval(interval);
-  }, []);
+  }, [activeHospitalId]);
 
-  // Close dropdown on click outside
+  // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
+      if (hospDropdownRef.current && !hospDropdownRef.current.contains(e.target)) {
+        setIsHospOpen(false);
+      }
     }
-    if (isOpen) {
+    if (isOpen || isHospOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, isHospOpen]);
+
+  const handleSelectHospital = (h) => {
+    setActiveHospitalId(h.id);
+    setHospital(h);
+    setIsHospOpen(false);
+    if (user) {
+      saveSession(getToken(), { ...user, hospital_id: h.id });
+    }
+  };
+
 
   const name = hospital?.name ?? 'City General Hospital';
   const location = hospital?.address ?? 'Mumbai, Maharashtra';
@@ -435,18 +458,170 @@ export default function Header() {
           )}
         </div>
 
-        {/* Hospital Profile Pill */}
-        <div className="hospital-profile-btn" role="button" tabIndex={0}>
-          <div className="hospital-avatar">
-            {shortCode || 'HA'}
+        {/* Hospital Profile Pill & Facility Switcher */}
+        <div style={{ position: 'relative' }} ref={hospDropdownRef}>
+          <div
+            className="hospital-profile-btn"
+            role="button"
+            tabIndex={0}
+            onClick={() => setIsHospOpen(!isHospOpen)}
+            style={{
+              cursor: 'pointer',
+              boxShadow: isHospOpen ? '0 0 0 2px #10B981' : undefined,
+            }}
+            title="Click to view or switch facility"
+          >
+            <div className="hospital-avatar">
+              {shortCode || 'HA'}
+            </div>
+            <div className="hospital-info">
+              <span className="hospital-name">{name}</span>
+              {location && <span className="hospital-location">{location}</span>}
+            </div>
+            <ChevronDown
+              className="dropdown-chevron"
+              style={{
+                transform: isHospOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s',
+              }}
+            />
           </div>
-          <div className="hospital-info">
-            <span className="hospital-name">{name}</span>
-            {location && <span className="hospital-location">{location}</span>}
-          </div>
-          <ChevronDown className="dropdown-chevron" />
+
+          {/* Facility Switcher Dropdown */}
+          {isHospOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '48px',
+                right: 0,
+                width: '320px',
+                maxHeight: '440px',
+                backgroundColor: '#ffffff',
+                borderRadius: '14px',
+                boxShadow: '0 12px 30px -4px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.06)',
+                border: '1px solid #e2e8f0',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                animation: 'fadeIn 0.15s ease-out',
+              }}
+            >
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #f1f5f9',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={16} color="#1F4D3A" />
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a' }}>
+                    Network Facilities ({allHospitals.length})
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    color: '#10B981',
+                    fontWeight: 700,
+                    backgroundColor: '#ECFDF5',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                  }}
+                >
+                  Live
+                </span>
+              </div>
+
+              <div
+                style={{
+                  overflowY: 'auto',
+                  maxHeight: '300px',
+                  padding: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                {allHospitals.map((h) => {
+                  const isCurrent = h.id === activeHospitalId;
+                  return (
+                    <div
+                      key={h.id}
+                      onClick={() => handleSelectHospital(h)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: isCurrent ? '#F0FDF4' : '#ffffff',
+                        border: isCurrent ? '1px solid #BBF7D0' : '1px solid transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isCurrent) e.currentTarget.style.backgroundColor = '#f8fafc';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isCurrent) e.currentTarget.style.backgroundColor = '#ffffff';
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontWeight: isCurrent ? 700 : 600, fontSize: '0.825rem', color: '#0f172a' }}>
+                          {h.name}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                          {h.address?.split(', ')?.[1] || h.address || 'Facility Node'} · {h.patient_capacity || 300} Beds
+                        </span>
+                      </div>
+
+                      {isCurrent && <Check size={16} color="#16A34A" />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderTop: '1px solid #f1f5f9',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setIsHospOpen(false);
+                    navigate('/network');
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#1F4D3A',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span>Explore Network Map</span>
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
 }
+

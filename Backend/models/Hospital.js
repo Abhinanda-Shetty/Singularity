@@ -61,4 +61,47 @@ async function findById(id) {
   }
 }
 
-module.exports = { findAll, findById };
+/**
+ * Create a new hospital (in DB and dataStore)
+ */
+
+async function create({ name, type = 'general', address = 'India', latitude, longitude, patient_capacity = 300 }) {
+  let created = null;
+
+  try {
+    const values = [
+      name.trim(),
+      (type || 'general').toLowerCase(),
+      address || 'India Regional Healthcare Center',
+      latitude || 20.0,
+      longitude || 78.0,
+      parseInt(patient_capacity, 10) || 300,
+    ];
+    const result = await query(
+      `INSERT INTO hospitals (name, type, address, latitude, longitude, patient_capacity)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, type, address, latitude, longitude, patient_capacity, created_at, updated_at`,
+      values
+    );
+    if (result.rows && result.rows.length > 0) {
+      created = result.rows[0];
+    }
+  } catch (err) {
+    console.warn('[HospitalModel] DB insert failed, using dataStore:', err.message);
+  }
+
+  // Also ensure dataStore is updated
+  const fromStore = dataStore.createHospital({
+    name,
+    type,
+    address,
+    latitude,
+    longitude,
+    patient_capacity,
+  });
+
+  return created || fromStore;
+}
+
+module.exports = { findAll, findById, create };
+

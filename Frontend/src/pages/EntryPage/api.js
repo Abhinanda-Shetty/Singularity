@@ -16,18 +16,23 @@ import {
   fetchRecentEntries,
   createEntry,
   createRequest,
+  getUser,
 } from '../../services/api';
 
-const HOSPITAL_ID = 1; // prototype: single hospital
+function getActiveHospitalId() {
+  const user = getUser();
+  return (user && user.hospital_id) ? parseInt(user.hospital_id, 10) : 1;
+}
 
 // ─────────────────────────────────────────────────────────────────
 // GET medicines — shape backend rows for the entry forms
 // ─────────────────────────────────────────────────────────────────
 export async function getMedicines() {
   try {
+    const hid = getActiveHospitalId();
     const [medsRes, invRes] = await Promise.all([
       fetchMedicines({ limit: 100 }),
-      fetchInventory({ hospital_id: HOSPITAL_ID, limit: 100 }),
+      fetchInventory({ hospital_id: hid, limit: 100 }),
     ]);
 
     const stockMap = {};
@@ -60,7 +65,7 @@ export async function getMedicines() {
 // ─────────────────────────────────────────────────────────────────
 export async function getHospitalProfile() {
   try {
-    const res = await fetchHospitalById(HOSPITAL_ID);
+    const res = await fetchHospitalById(getActiveHospitalId());
     const h = res.data;
     if (!h) throw new Error('No data');
     return {
@@ -80,7 +85,7 @@ export async function getHospitalProfile() {
 // ─────────────────────────────────────────────────────────────────
 export async function getRecentEntries() {
   try {
-    const res = await fetchRecentEntries({ hospital_id: HOSPITAL_ID, limit: 20 });
+    const res = await fetchRecentEntries({ hospital_id: getActiveHospitalId(), limit: 20 });
     return res.data || [];
   } catch {
     return [];
@@ -94,7 +99,7 @@ export async function saveEntry(entryData) {
   if (entryData.type === 'stock') {
     const res = await createEntry({
       type:        'stock',
-      hospital_id: HOSPITAL_ID,
+      hospital_id: getActiveHospitalId(),
       medicine_id: parseInt(entryData.medicineId, 10),
       batch_id:    entryData.batchId,
       quantity:    entryData.quantity,
@@ -110,7 +115,7 @@ export async function saveEntry(entryData) {
     // usage
     const res = await createEntry({
       type:            'usage',
-      hospital_id:     HOSPITAL_ID,
+      hospital_id:     getActiveHospitalId(),
       medicine_id:     parseInt(entryData.medicineId, 10),
       units_used:      entryData.unitsUsed,
       date:            entryData.date || new Date().toISOString().split('T')[0],
@@ -130,7 +135,7 @@ export async function saveEntry(entryData) {
 // ─────────────────────────────────────────────────────────────────
 export async function sendMedicineRequest(requestData) {
   const res = await createRequest({
-    hospital_id:       HOSPITAL_ID,
+    hospital_id:       getActiveHospitalId(),
     medicine_id:       parseInt(requestData.medicineId, 10),
     quantity_required: requestData.quantityRequired,
     needed_by:         requestData.neededBy,

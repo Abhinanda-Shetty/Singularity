@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, RefreshCw } from 'lucide-react';
+import { Lightbulb, RefreshCw, Building2 } from 'lucide-react';
 import KpiCard from '../../components/KpiCard';
 import DemandChart from '../../components/DemandChart';
 import StockDonutChart from '../../components/StockDonutChart';
 import InsightCard from '../../components/InsightCard';
-import { fetchDashboardSummary } from '../../services/api';
+import { fetchDashboardSummary, fetchHospitals, getUser } from '../../services/api';
 
 // Fallback mock profile shown while data loads or if API is unavailable
 const FALLBACK_PROFILE = { name: 'Hospital', systemStatus: 'System running' };
 
 export default function DashboardPage() {
+  const user = getUser();
+  const [selectedHospitalId, setSelectedHospitalId] = useState(user?.hospital_id || 1);
+  const [hospitalsList, setHospitalsList] = useState([]);
   const [summary, setSummary] = useState(null);
   const [hospital, setHospital] = useState(FALLBACK_PROFILE);
   const [loading, setLoading] = useState(true);
@@ -23,9 +26,13 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const data = await fetchDashboardSummary(1);
+      const [data, hospRes] = await Promise.all([
+        fetchDashboardSummary(selectedHospitalId),
+        fetchHospitals({ limit: 50 }).catch(() => ({ data: [] })),
+      ]);
       setSummary(data);
       if (data.hospital) setHospital(data.hospital);
+      if (hospRes?.data?.length > 0) setHospitalsList(hospRes.data);
       const now = new Date();
       setLastUpdatedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (err) {
@@ -38,7 +45,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData(false);
-  }, []);
+  }, [selectedHospitalId]);
+
 
 
   // Build KPI cards from live data (or show placeholders while loading)
@@ -137,12 +145,41 @@ export default function DashboardPage() {
         </div>
 
         <div className="system-status-wrap">
+          {hospitalsList.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Building2 size={15} color="#1F4D3A" />
+              <select
+                value={selectedHospitalId}
+                onChange={(e) => setSelectedHospitalId(Number(e.target.value))}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #C6E2C9',
+                  backgroundColor: '#ffffff',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#1F4D3A',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+                title="Switch active facility view"
+              >
+                {hospitalsList.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name} ({h.address?.split(', ')?.[1] || 'Node'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="system-status-pill">
             <span className="status-dot-pulse" />
             <span>{error ? 'Backend unavailable' : 'System running'}</span>
           </div>
           <span className="status-last-updated">Last updated {lastUpdated}</span>
         </div>
+
       </div>
 
       {/* API Error Banner */}

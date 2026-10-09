@@ -60,4 +60,64 @@ async function findAll({ hospital_id, medicine_id, limit = 100, offset = 0 } = {
   }
 }
 
-module.exports = { findAll };
+async function findById(id) {
+  const numId = parseInt(id, 10);
+  const inv = dataStore.getInventory();
+  const found = inv.rows.find((i) => i.id === numId);
+  if (found) return found;
+
+  try {
+    const res = await query(
+      `SELECT
+         i.id,
+         i.hospital_id,
+         h.name AS hospital_name,
+         i.medicine_id,
+         m.name AS medicine_name,
+         m.unit AS medicine_unit,
+         i.quantity,
+         i.safety_stock,
+         i.updated_at
+       FROM inventory i
+       JOIN hospitals h ON h.id = i.hospital_id
+       JOIN medicines m ON m.id = i.medicine_id
+       WHERE i.id = $1`,
+      [numId]
+    );
+    return res.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function updateById(id, { quantity, safety_stock, note } = {}) {
+  // Always update in memory store
+  const updatedItem = dataStore.updateInventoryItem({ id, quantity, safety_stock, note });
+
+  // Update in database if connected
+  try {
+    const fields = [];
+    const values = [];
+
+    if (quantity !== undefined) {
+      values.push(parseFloat(quantity));
+      fields.push(`quantity = $${values.length}`);
+    }
+    if (safety_stock !== undefined) {
+      values.push(parseFloat(safety_stock));
+      fields.push(`safety_stock = $${values.length}`);
+    }
+    if (fields.length > 0) {
+      fields.push(`updated_at = NOW()`);
+      values.push(parseInt(id, 10));
+      const q = `UPDATE inventory SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`;
+      await query(q, values);
+    }
+  } catch (err) {
+    console.warn('[InventoryModel] DB update warning:', err.message);
+  }
+
+  return updatedItem;
+}
+
+module.exports = { findAll, findById, updateById };

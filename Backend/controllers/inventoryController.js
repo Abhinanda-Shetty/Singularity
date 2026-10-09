@@ -39,4 +39,36 @@ const getInventory = asyncHandler(async (req, res) => {
   }));
 });
 
-module.exports = { getInventory };
+/**
+ * PATCH /api/inventory/:id
+ * Body: { quantity?: number, safety_stock?: number, note?: string }
+ */
+const updateInventory = asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id) || id < 1) {
+    throw new AppError('Inventory item ID must be a positive integer', 400, 'VALIDATION_ERROR');
+  }
+
+  const { quantity, safety_stock, note } = req.body;
+
+  if (quantity === undefined && safety_stock === undefined) {
+    throw new AppError('Provide at least "quantity" or "safety_stock" to update', 400, 'VALIDATION_ERROR');
+  }
+
+  if (quantity !== undefined && (isNaN(parseFloat(quantity)) || parseFloat(quantity) < 0)) {
+    throw new AppError('Quantity must be a non-negative number', 400, 'VALIDATION_ERROR');
+  }
+
+  if (safety_stock !== undefined && (isNaN(parseFloat(safety_stock)) || parseFloat(safety_stock) < 0)) {
+    throw new AppError('Safety stock must be a non-negative number', 400, 'VALIDATION_ERROR');
+  }
+
+  const updated = await Inventory.updateById(id, { quantity, safety_stock, note });
+  if (!updated) {
+    throw new AppError(`Inventory item #${id} not found`, 404, 'NOT_FOUND');
+  }
+
+  res.json(successResponse(updated, `Stock updated successfully for ${updated.medicine_name || `Item #${id}`}.`));
+});
+
+module.exports = { getInventory, updateInventory };

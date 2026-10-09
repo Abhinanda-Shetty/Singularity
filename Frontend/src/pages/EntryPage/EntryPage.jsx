@@ -22,9 +22,9 @@ import {
   sendMedicineRequest,
 } from './api';
 
-export default function EntryPage({ onNavigate }) {
+export default function EntryPage({ onNavigate, initialTab = 'stock' }) {
   // Four tabs: 'stock', 'usage', 'request', 'profile'
-  const [activeTab, setActiveTab] = useState('request');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Initialize with initial constants to ensure synchronous availability on mount
   const [medicines, setMedicines] = useState(MOCK_MEDICINES);

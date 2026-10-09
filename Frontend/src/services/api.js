@@ -80,10 +80,10 @@ async function apiFetch(path, options = {}) {
 // ─────────────────────────────────────────────────────────────────
 
 /** POST /api/auth/signup — registers new user and stores token on success */
-export async function signup({ username, password, email, hospital_id }) {
+export async function signup(payload = {}) {
   const res = await apiFetch('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ username, password, email, hospital_id }),
+    body: JSON.stringify(payload),
   });
   if (res.data?.token) {
     saveSession(res.data.token, res.data.user);
@@ -133,6 +133,15 @@ export async function fetchHospitalById(id) {
   return apiFetch(`/hospitals/${id}`);
 }
 
+/** POST /api/hospitals — register a new hospital in network */
+export async function createHospital(hospitalData) {
+  return apiFetch('/hospitals', {
+    method: 'POST',
+    body: JSON.stringify(hospitalData),
+  });
+}
+
+
 // ─────────────────────────────────────────────────────────────────
 // Medicines
 // ─────────────────────────────────────────────────────────────────
@@ -163,6 +172,14 @@ export async function fetchInventory(params = {}) {
   if (params.limit)       qs.set('limit',       String(params.limit));
   const q = qs.toString() ? `?${qs}` : '';
   return apiFetch(`/inventory${q}`);
+}
+
+/** PATCH /api/inventory/:id */
+export async function updateInventory(id, payload) {
+  return apiFetch(`/inventory/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -317,4 +334,25 @@ export async function fetchRedistribution(options = {}) {
     body: JSON.stringify(options),
   });
 }
+
+// ─────────────────────────────────────────────────────────────────
+// LLM Intelligence & Gemini RAG Assistant
+// ─────────────────────────────────────────────────────────────────
+
+/** POST /api/llm/query — RAG grounded query against Supabase database tables */
+export async function queryLlmAssistant(query, inventoryContext = null) {
+  return apiFetch('/llm/query', {
+    method: 'POST',
+    body: JSON.stringify({ query, inventoryContext }),
+  });
+}
+
+/** POST /api/llm/explain — Gemini explanation for stock transfers */
+export async function explainRedistribution(data = {}) {
+  return apiFetch('/llm/explain', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 

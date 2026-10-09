@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Loader, UserPlus, LogIn } from 'lucide-react';
+import { AlertCircle, Loader, UserPlus, LogIn, Building2, MapPin } from 'lucide-react';
 import { login, signup } from '../../services/api';
 
 export default function LoginPage() {
@@ -9,6 +9,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Hospital registration fields for signup
+  const [hospitalName, setHospitalName] = useState('');
+  const [hospitalType, setHospitalType] = useState('general');
+  const [hospitalAddress, setHospitalAddress] = useState('Hyderabad, Telangana');
+  const [patientCapacity, setPatientCapacity] = useState('350');
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -41,6 +48,10 @@ export default function LoginPage() {
         setError('Passwords do not match.');
         return;
       }
+      if (!hospitalName.trim()) {
+        setError('Hospital or medical center name is required.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -53,11 +64,15 @@ export default function LoginPage() {
           username: cleanUsername,
           password,
           email: email.trim() || undefined,
-          hospital_id: 1,
+          hospital_name: hospitalName.trim(),
+          hospital_type: hospitalType,
+          hospital_address: hospitalAddress.trim(),
+          patient_capacity: parseInt(patientCapacity, 10) || 300,
         });
       }
-      navigate('/dashboard');
+      navigate('/network');
     } catch (err) {
+
       if (err.status === 401) {
         setError('Invalid username or password.');
       } else if (err.status === 409) {
@@ -230,21 +245,115 @@ export default function LoginPage() {
           </div>
 
           {mode === 'signup' && (
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
-              <input
-                id="confirmPassword"
-                type="password"
-                className="form-input"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-                required
-                autoComplete="new-password"
-                disabled={loading}
-              />
-            </div>
+            <>
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  className="form-input"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm your password"
+                  required
+                  autoComplete="new-password"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Hospital Facility Registration Section */}
+              <div
+                className="signup-facility-panel"
+                style={{
+                  margin: '16px 0 10px 0',
+                  padding: '14px',
+                  backgroundColor: '#F3F8F3',
+                  borderRadius: '12px',
+                  border: '1px solid #D1E5D3',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <Building2 size={16} color="#1F4D3A" />
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F291E' }}>
+                    Register Your Hospital / Health Facility
+                  </span>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '10px' }}>
+                  <label htmlFor="hospitalName" style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                    Hospital Name *
+                  </label>
+                  <input
+                    id="hospitalName"
+                    type="text"
+                    className="form-input"
+                    value={hospitalName}
+                    onChange={(e) => setHospitalName(e.target.value)}
+                    placeholder="e.g. Apex Multispecialty Hospital"
+                    required={mode === 'signup'}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="hospitalType" style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                      Facility Type
+                    </label>
+                    <select
+                      id="hospitalType"
+                      className="form-input"
+                      value={hospitalType}
+                      onChange={(e) => setHospitalType(e.target.value)}
+                      disabled={loading}
+                      style={{ height: '38px' }}
+                    >
+                      <option value="general">General Hospital</option>
+                      <option value="specialty">Super Specialty</option>
+                      <option value="urban">Urban Medical Centre</option>
+                      <option value="rural">Rural Health Centre</option>
+                      <option value="trauma">Trauma &amp; Emergency</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="patientCapacity" style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                      Bed Capacity
+                    </label>
+                    <input
+                      id="patientCapacity"
+                      type="number"
+                      min="20"
+                      max="3000"
+                      className="form-input"
+                      value={patientCapacity}
+                      onChange={(e) => setPatientCapacity(e.target.value)}
+                      placeholder="e.g. 350"
+                      disabled={loading}
+                      style={{ height: '38px' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="hospitalAddress" style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                    City / Location (India) *
+                  </label>
+                  <input
+                    id="hospitalAddress"
+                    type="text"
+                    className="form-input"
+                    value={hospitalAddress}
+                    onChange={(e) => setHospitalAddress(e.target.value)}
+                    placeholder="e.g. Hyderabad, Telangana or Pune, Maharashtra"
+                    required={mode === 'signup'}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            </>
           )}
+
 
           <button
             type="submit"

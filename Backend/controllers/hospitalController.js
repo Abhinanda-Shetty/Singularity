@@ -42,4 +42,28 @@ const getHospitalById = asyncHandler(async (req, res) => {
   res.json(successResponse(hospital));
 });
 
-module.exports = { getHospitals, getHospitalById };
+/**
+ * POST /api/hospitals
+ * Create/register a new hospital in the network
+ */
+const createHospital = asyncHandler(async (req, res) => {
+  const { name, type, address, latitude, longitude, patient_capacity } = req.body;
+
+  if (!name || !name.trim()) {
+    throw new AppError('Hospital name is required', 400, 'VALIDATION_ERROR');
+  }
+
+  const newHospital = await Hospital.create({
+    name,
+    type,
+    address,
+    latitude,
+    longitude,
+    patient_capacity,
+  });
+
+  res.status(201).json(successResponse(newHospital, 'Hospital registered successfully'));
+});
+
+module.exports = { getHospitals, getHospitalById, createHospital };
+

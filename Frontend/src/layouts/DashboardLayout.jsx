@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import AiChatbot from '../components/AiChatbot/AiChatbot';
 
 export default function DashboardLayout() {
   return (
@@ -12,6 +13,8 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      <AiChatbot />
     </div>
   );
 }
+

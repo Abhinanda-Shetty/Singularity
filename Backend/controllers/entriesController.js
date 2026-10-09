@@ -85,6 +85,20 @@ async function handleStockReceived(req, res) {
 
       await client.query('COMMIT');
 
+      // Keep in-memory dataStore synchronized
+      try {
+        dataStore.recordStockReceived({
+          hospital_id,
+          medicine_id,
+          batch_id,
+          quantity: qty,
+          expiry_date,
+          date_received,
+        });
+      } catch (syncErr) {
+        console.warn('[EntriesController] dataStore sync warning:', syncErr.message);
+      }
+
       return res.status(201).json(
         successResponse(
           {
@@ -187,6 +201,20 @@ async function handleDailyUsage(req, res) {
       );
 
       await client.query('COMMIT');
+
+      // Keep in-memory dataStore synchronized
+      try {
+        dataStore.recordDailyUsage({
+          hospital_id,
+          medicine_id,
+          units_used: used,
+          date: usageDate,
+          emergency_cases,
+          patient_load,
+        });
+      } catch (syncErr) {
+        console.warn('[EntriesController] dataStore sync warning:', syncErr.message);
+      }
 
       return res.status(201).json(
         successResponse(

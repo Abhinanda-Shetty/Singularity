@@ -21,6 +21,7 @@
   "author": "Singularity Team",
   "license": "MIT",
   "dependencies": {
+    "@google/genai": "^2.28.0",
     "@supabase/supabase-js": "^2.117.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

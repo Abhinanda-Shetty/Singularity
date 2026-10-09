@@ -470,6 +470,69 @@ function recordDailyUsage({ hospital_id = 1, medicine_id, units_used, date, emer
   return { inventory: inv, demand: demandEntry, activity: act };
 }
 
+function updateInventoryItem({ id, hospital_id, medicine_id, quantity, safety_stock, note }) {
+  const numId = id !== undefined && id !== null ? parseInt(id, 10) : null;
+  const hid = hospital_id ? parseInt(hospital_id, 10) : null;
+  const mid = medicine_id ? parseInt(medicine_id, 10) : null;
+
+  let item = null;
+  if (numId) {
+    item = inventory.find((i) => i.id === numId);
+  }
+  if (!item && hid && mid) {
+    item = inventory.find((i) => i.hospital_id === hid && i.medicine_id === mid);
+  }
+
+  if (!item) {
+    if (hid && mid) {
+      item = {
+        id: inventory.length + 1,
+        hospital_id: hid,
+        medicine_id: mid,
+        quantity: quantity !== undefined ? Math.max(0, parseFloat(quantity)) : 0,
+        safety_stock: safety_stock !== undefined ? Math.max(0, parseFloat(safety_stock)) : 50,
+        updated_at: new Date().toISOString(),
+      };
+      inventory.push(item);
+    } else {
+      return null;
+    }
+  }
+
+  const prevQty = item.quantity;
+  if (quantity !== undefined) {
+    item.quantity = Math.max(0, parseFloat(quantity));
+  }
+  if (safety_stock !== undefined) {
+    item.safety_stock = Math.max(0, parseFloat(safety_stock));
+  }
+  item.updated_at = new Date().toISOString();
+
+  const h = getHospitalById(item.hospital_id);
+  const m = medicineDataset.findById(item.medicine_id) || { name: `Medicine #${item.medicine_id}`, unit: 'unit', category: 'General' };
+
+  // Activity Log
+  const diff = item.quantity - prevQty;
+  const diffText = diff >= 0 ? `+${diff}` : `${diff}`;
+  activityLog.unshift({
+    id: activityLog.length + 1,
+    hospital_id: item.hospital_id,
+    medicine_id: item.medicine_id,
+    type: 'stock_update',
+    quantity: item.quantity,
+    description: `Inventory stock updated: ${m.name} changed from ${prevQty} to ${item.quantity} (${diffText} units). ${note || ''}`.trim(),
+    created_at: new Date().toISOString(),
+  });
+
+  return {
+    ...item,
+    hospital_name: h ? h.name : 'Unknown Hospital',
+    medicine_name: m.name,
+    medicine_unit: m.unit,
+    medicine_category: m.category,
+  };
+}
+
 // In-Memory Storage for Users
 const bcrypt = require('bcryptjs');
 let users = [
@@ -510,14 +573,131 @@ function createUser({ username, email, password_hash, role = 'hospital_admin', h
   return newUser;
 }
 
+function createHospital({
+  name,
+  type = 'general',
+  address = 'New Delhi, India',
+  latitude,
+  longitude,
+  patient_capacity = 300,
+}) {
+  const cityCoordinates = [
+    { name: 'hyderabad', lat: 17.3850, lng: 78.4867 },
+    { name: 'pune', lat: 18.5204, lng: 73.8567 },
+    { name: 'kolkata', lat: 22.5726, lng: 88.3639 },
+    { name: 'jaipur', lat: 26.9124, lng: 75.7873 },
+    { name: 'ahmedabad', lat: 23.0225, lng: 72.5714 },
+    { name: 'chandigarh', lat: 30.7333, lng: 76.7794 },
+    { name: 'lucknow', lat: 26.8467, lng: 80.9462 },
+    { name: 'kochi', lat: 9.9312, lng: 76.2673 },
+    { name: 'bhopal', lat: 23.2599, lng: 77.4126 },
+    { name: 'nagpur', lat: 21.1458, lng: 79.0882 },
+  ];
+
+  let chosenLat = parseFloat(latitude);
+  let chosenLng = parseFloat(longitude);
+
+  if (isNaN(chosenLat) || isNaN(chosenLng) || !chosenLat || !chosenLng) {
+    const addrLower = (address || '').toLowerCase();
+    const matched = cityCoordinates.find((c) => addrLower.includes(c.name));
+    if (matched) {
+      chosenLat = matched.lat;
+      chosenLng = matched.lng;
+    } else {
+      const fallbackCity = cityCoordinates[(hospitals.length) % cityCoordinates.length];
+      chosenLat = fallbackCity.lat;
+      chosenLng = fallbackCity.lng;
+    }
+  }
+
+  const newHospital = {
+    id: hospitals.length + 1,
+    name: name ? name.trim() : `Hospital #${hospitals.length + 1}`,
+    type: (type || 'general').toLowerCase(),
+    address: address ? address.trim() : 'India Regional Healthcare Center',
+    latitude: Math.round(chosenLat * 10000) / 10000,
+    longitude: Math.round(chosenLng * 10000) / 10000,
+    patient_capacity: parseInt(patient_capacity, 10) || 300,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  hospitals.push(newHospital);
+
+  // Seed inventory for top essential medicines for this new hospital
+  const baseMedicines = [
+    { mid: 1, qty: 350, safety: 120 }, // Augmentin 625
+    { mid: 2, qty: 280, safety: 100 }, // Azithral 500
+    { mid: 3, qty: 150, safety: 80 },  // Ascoril LS
+    { mid: 4, qty: 220, safety: 70 },  // Allegra 120
+    { mid: 5, qty: 45,  safety: 60 },  // Avil 25 (Low stock)
+    { mid: 6, qty: 400, safety: 90 },  // Aciloc 150
+    { mid: 7, qty: 300, safety: 110 }, // Atorva 20
+    { mid: 8, qty: 25,  safety: 50 },  // Amlokind 5 (Low stock)
+    { mid: 9, qty: 500, safety: 120 }, // Glycomet 500
+    { mid: 10, qty: 180, safety: 60 }, // Pan 40
+    { mid: 11, qty: 650, safety: 150 },// Calpol 650
+    { mid: 12, qty: 30,  safety: 70 }, // Dolo 650 (Shortage)
+  ];
+
+  baseMedicines.forEach((bm) => {
+    inventory.push({
+      id: inventory.length + 1,
+      hospital_id: newHospital.id,
+      medicine_id: bm.mid,
+      quantity: bm.qty,
+      safety_stock: bm.safety,
+      updated_at: new Date().toISOString(),
+    });
+  });
+
+  // Seed 2 active batches for this hospital
+  batches.push({
+    id: batches.length + 1,
+    hospital_id: newHospital.id,
+    medicine_id: 1,
+    batch_number: `B-NEW-${newHospital.id}-01`,
+    quantity: 200,
+    expiry_date: daysFromNow(210),
+    created_at: new Date().toISOString(),
+  });
+
+  batches.push({
+    id: batches.length + 1,
+    hospital_id: newHospital.id,
+    medicine_id: 5,
+    batch_number: `B-NEW-${newHospital.id}-02`,
+    quantity: 45,
+    expiry_date: daysFromNow(18),
+    created_at: new Date().toISOString(),
+  });
+
+  // Seed demand history pairs
+  for (let d = 1; d <= 7; d++) {
+    demandHistory.push({
+      id: demandHistory.length + 1,
+      hospital_id: newHospital.id,
+      medicine_id: 1,
+      date: daysFromNow(-d),
+      consumption: 18 + (d % 4),
+      patient_load: Math.round(newHospital.patient_capacity * 0.72),
+      emergency_demand: d % 3 === 0 ? 5 : 0,
+    });
+  }
+
+  return newHospital;
+}
+
 function getRecentEntries({ hospital_id = 1, limit = 20 } = {}) {
   const filtered = activityLog.filter((a) => a.hospital_id === parseInt(hospital_id, 10));
   return filtered.slice(0, limit);
 }
 
 module.exports = {
+
   getHospitals,
   getHospitalById,
+  createHospital,
   getInventory,
   getBatches,
   getDemandHistory,
@@ -526,8 +706,10 @@ module.exports = {
   updateRequestStatus,
   recordStockReceived,
   recordDailyUsage,
+  updateInventoryItem,
   getRecentEntries,
   findUser,
   createUser,
 };
+
 
